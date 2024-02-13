@@ -1,0 +1,4 @@
+aiohttp~=3.9.3
+pyTelegramBotAPI~=4.15.4
+python-decouple~=3.8
+flask[async]~=3.0.2
