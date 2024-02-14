@@ -54,15 +54,15 @@ class TBotHandler:
     def __init__(self):
         self.bot = AsyncTeleBot(API_KEY, state_storage=StateMemoryStorage())
         self.app = flask.Flask(__name__)
-        self.host = '0.0.0.0'
+        self.host = config('TELEGRAM_BOT_HANDLER_HOST')
         self.port = int(config('TELEGRAM_BOT_HANDLER_PORT'))
         try:
             asyncio.run(self.bot.delete_webhook(timeout=30))
             asyncio.run(self.bot.log_out())
         except ApiTelegramException as e:
             pass
-        apihelper.API_URL = "http://localhost:8081/bot{0}/{1}"
-        asyncio_helper.API_URL = "http://localhost:8081/bot{0}/{1}"
+        apihelper.API_URL = f"http://{config('LOCAL_TELEGRAM_API_SERVER_HOST')}:{config('LOCAL_TELEGRAM_API_SERVER_PORT')}/bot{0}/{1}"
+        asyncio_helper.API_URL = f"http://{config('LOCAL_TELEGRAM_API_SERVER_HOST')}:{config('LOCAL_TELEGRAM_API_SERVER_PORT')}/bot{0}/{1}"
         self.__configure_router()
         self.__configure_bot()
 

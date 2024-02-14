@@ -1,6 +1,8 @@
 FROM ubuntu:latest
 FROM python:3.10-slim
 
+LABEL t="local_telegram_api_server"
+
 RUN apt-get update && apt-get install -y make git zlib1g-dev libssl-dev gperf cmake g++
 
 RUN git clone --recursive https://github.com/tdlib/telegram-bot-api.git
