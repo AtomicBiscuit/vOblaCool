@@ -16,14 +16,14 @@ from telebot.asyncio_storage import StateMemoryStorage
 from telebot.types import InputFile, ReplyParameters
 from telebot.types import Update, Message
 
-API_KEY = config('tbot_apikey')
+API_KEY = config('TELEGRAM_BOT_API_KEY')
 
-DOMAIN = config('tbot_url')
+DOMAIN = config('TELEGRAM_BOT_HANDLER_HOST')
 
-LOADER_HOST = config('loader_host')
-LOADER_PORT = config('loader_port')
+LOADER_HOST = config('LOADER_HOST')
+LOADER_PORT = config('LOADER_PORT')
 
-WEBHOOK_TOKEN = config('tbot_webhook_token')
+WEBHOOK_TOKEN = config('TELEGRAM_BOT_WEBHOOK_TOKEN')
 
 
 class DownloadVideoState(StatesGroup):
@@ -55,7 +55,7 @@ class TBotHandler:
         self.bot = AsyncTeleBot(API_KEY, state_storage=StateMemoryStorage())
         self.app = flask.Flask(__name__)
         self.host = '0.0.0.0'
-        self.port = int(config('tbot_port'))
+        self.port = int(config('TELEGRAM_BOT_HANDLER_PORT'))
         try:
             asyncio.run(self.bot.delete_webhook(timeout=30))
             asyncio.run(self.bot.log_out())
