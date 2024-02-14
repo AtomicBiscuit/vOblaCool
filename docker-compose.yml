@@ -3,9 +3,27 @@ version: '3'
 services:
   bot_server:
     build:
-      context: src/py-bot-server
+      context: ./src/py-bot-server
       dockerfile: ./Dockerfile
     ports:
       - '${LOCAL_TELEGRAM_API_SERVER_PORT}:8081'
+    env_file:
+      - ./.env
+
+  bot_handler:
+    build:
+      context: ./src/bot
+      dockerfile: ./Dockerfile
+    ports:
+      - '${TELEGRAM_BOT_HANDLER_PORT}:${TELEGRAM_BOT_HANDLER_PORT}'
+    env_file:
+      - ./.env
+
+  downloader:
+    build:
+      context: ./src/downloader
+      dockerfile: ./Dockerfile
+    ports:
+      - '${DOWNLOADER_PORT}:${DOWNLOADER_PORT}'
     env_file:
       - ./.env

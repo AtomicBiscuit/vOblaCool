@@ -20,8 +20,8 @@ API_KEY = config('TELEGRAM_BOT_API_KEY')
 
 DOMAIN = config('TELEGRAM_BOT_HANDLER_HOST')
 
-LOADER_HOST = config('LOADER_HOST')
-LOADER_PORT = config('LOADER_PORT')
+DOWNLOADER_HOST = config('DOWNLOADER_HOST')
+DOWNLOADER_PORT = config('DOWNLOADER_PORT')
 
 WEBHOOK_TOKEN = config('TELEGRAM_BOT_WEBHOOK_TOKEN')
 
@@ -88,7 +88,7 @@ class TBotHandler:
             await self.bot.delete_state(message.from_user.id, message.chat.id)
             async with aiohttp.ClientSession() as session:
                 # TODO: Добавить очередь сообщений между TBotHandler и Loader
-                async with session.post(f'http://{LOADER_HOST}:{LOADER_PORT}/api/download/start',
+                async with session.post(f'http://{DOWNLOADER_HOST}:{DOWNLOADER_PORT}/api/download/start',
                                         json={'chat_id': message.chat.id, 'message_id': message.id,
                                               'url': message.text}) as response:
                     if response.status == 404:

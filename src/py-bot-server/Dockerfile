@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:latest
 FROM python:3.10-slim
 
 RUN apt-get update && apt-get install -y make git zlib1g-dev libssl-dev gperf cmake g++

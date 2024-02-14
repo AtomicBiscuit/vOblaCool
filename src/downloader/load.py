@@ -69,8 +69,8 @@ class Loader:
     def __init__(self):
         self.app = flask.Flask(__name__)
         self.queue = QueueImitator()  # TODO: Убрать
-        self.host = config('LOADER_HOST')
-        self.port = int(config('LOADER_PORT'))
+        self.host = config('DOWNLOADER_HOST')
+        self.port = int(config('DOWNLOADER_PORT'))
         self.__configure_router()
 
     async def __main_page(self) -> Response:
