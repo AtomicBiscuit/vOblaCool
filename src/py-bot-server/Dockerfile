@@ -16,7 +16,4 @@ RUN cmake --build . --target install
 
 WORKDIR ../..
 
-EXPOSE 8081
-
-# Честно не знаю как передать сюда переменные окружения, но здесь они должны быть TODO: Добавить
-ENTRYPOINT telegram-bot-api/bin/telegram-bot-api --local --api-id= --api-hash=
+ENTRYPOINT telegram-bot-api/bin/telegram-bot-api --local --api-id=${LOCAL_TELEGRAM_API_ID} --api-hash=${LOCAL_TELEGRAM_API_HASH}
