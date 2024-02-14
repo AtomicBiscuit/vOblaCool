@@ -1,0 +1,7 @@
+version: '3'
+
+services:
+  bot_server:
+    build: src/py-bot-server
+    ports:
+      - '8081:8081'
