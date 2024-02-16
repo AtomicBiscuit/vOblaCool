@@ -1,5 +1,6 @@
 ./media
 ./venv
 ./.idea
+.idea
 .env
 tester.py

@@ -3,6 +3,7 @@
 """
 
 import threading
+from http import HTTPStatus
 from queue import Queue
 from urllib.parse import urlparse
 
@@ -11,10 +12,10 @@ import requests as req
 from decouple import config
 from flask import request, Response
 from pytube import extract, YouTube
-from pytube.exceptions import RegexMatchError
+from pytube.exceptions import RegexMatchError, AgeRestrictedError, VideoPrivate, PytubeError
 
-TBOT_URL = 'http://localhost'
-TBOT_PORT = config('tbot_port')
+TBOT_HOST = config('TELEGRAM_BOT_HANDLER_HOST')
+TBOT_PORT = config('TELEGRAM_BOT_HANDLER_PORT')
 
 
 # TODO: Заменить полноценной очередью
@@ -33,11 +34,22 @@ class QueueImitator:
         if self.queue.empty():
             return
         item = self.queue.get_nowait()
-        videos = YouTube(item[0]).streams.filter(progressive=True, file_extension='mp4', resolution='720p').desc()
-        file_path = videos.first().download('../../media', filename_prefix=str(Loader.video_id) + '_')
-        Loader.video_id += 1
-        res = req.post(f'{TBOT_URL}:{TBOT_PORT}/api/download/complete',
-                       json={'chat_id': item[1], 'message_id': item[2], 'file_path': file_path})
+        try:
+            videos = YouTube(item[0]).streams.filter(progressive=True, file_extension='mp4', resolution='720p').desc()
+            file_path = videos.first().download('../media', filename_prefix=str(Loader.video_id) + '_')
+            Loader.video_id += 1
+        except (AgeRestrictedError, VideoPrivate) as e:
+            req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete',
+                     json={'chat_id': item[1], 'message_id': item[2], 'error_code': HTTPStatus.UNAUTHORIZED})
+            self.queue.task_done()
+            return
+        except PytubeError as e:
+            req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete',
+                     json={'chat_id': item[1], 'message_id': item[2], 'error_code': HTTPStatus.BAD_REQUEST})
+            self.queue.task_done()
+            return
+        req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete',
+                 json={'chat_id': item[1], 'message_id': item[2], 'file_path': file_path})
         self.queue.task_done()
 
 
@@ -69,8 +81,8 @@ class Loader:
     def __init__(self):
         self.app = flask.Flask(__name__)
         self.queue = QueueImitator()  # TODO: Убрать
-        self.host = config('loader_host')
-        self.port = int(config('loader_port'))
+        self.host = config('DOWNLOADER_HOST')
+        self.port = int(config('DOWNLOADER_PORT'))
         self.__configure_router()
 
     async def __main_page(self) -> Response:
@@ -79,7 +91,7 @@ class Loader:
 
         :return: Response 200
         """
-        return Response(f'Everything good', 200)
+        return Response(f'Everything good', HTTPStatus.OK)
 
     @staticmethod
     def validate_youtube(url_raw: str):
@@ -100,7 +112,7 @@ class Loader:
 
     async def __download_start(self) -> Response:
         """
-        Обрабатывает POST-запрос на начало заргрузки, определяет видео-хостинг, запускает процесс загрузки
+        Обрабатывает POST-запрос на начало загрузки, определяет видео-хостинг, запускает процесс загрузки
 
         :return: Response 200 если ссылка верна, BadResponse 404 иначе
         """
@@ -110,8 +122,8 @@ class Loader:
         message_id = payload['message_id']
         if self.validate_youtube(url_raw):
             self.queue.add_task(url_raw, chat_id, message_id)
-            return Response(status=200)
-        return Response(status=404)
+            return Response(status=HTTPStatus.OK)
+        return Response(status=HTTPStatus.NOT_FOUND)
 
     def __configure_router(self):
         """

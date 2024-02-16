@@ -3,6 +3,7 @@
 """
 
 import asyncio
+from http import HTTPStatus
 
 import aiohttp
 import flask
@@ -16,14 +17,17 @@ from telebot.asyncio_storage import StateMemoryStorage
 from telebot.types import InputFile, ReplyParameters
 from telebot.types import Update, Message
 
-API_KEY = config('tbot_apikey')
+API_KEY = config('TELEGRAM_BOT_API_KEY')
 
-DOMAIN = config('tbot_url')
+DOMAIN = config('TELEGRAM_BOT_HANDLER_PROXY')
 
-LOADER_HOST = config('loader_host')
-LOADER_PORT = config('loader_port')
+DOWNLOADER_HOST = config('DOWNLOADER_HOST')
+DOWNLOADER_PORT = config('DOWNLOADER_PORT')
 
-WEBHOOK_TOKEN = config('tbot_webhook_token')
+TELEGRAM_SERVER_HOST = config('LOCAL_TELEGRAM_API_SERVER_HOST')
+TELEGRAM_SERVER_PORT = config('LOCAL_TELEGRAM_API_SERVER_PORT')
+
+WEBHOOK_TOKEN = config('TELEGRAM_BOT_WEBHOOK_TOKEN')
 
 
 class DownloadVideoState(StatesGroup):
@@ -39,9 +43,9 @@ class DownloadVideoState(StatesGroup):
 class TBotHandler:
     """
     Класс-оболочка над Телеграм ботом, реализующая API для взаимодействия.
-    Определяет поведение бота, отправляет запросы на заргузку и обрабатывает ответы на них.
+    Определяет поведение бота, отправляет запросы на загрузку и обрабатывает ответы на них.
 
-    :param bot: Экземляр бота
+    :param bot: Экземпляр бота
     :type bot: :class: `telebot.async_telebot.AsyncTeleBot`
     :param app: Flask-приложения для общения с остальными модулями
     :type app: :class: `flask.app.Flask`
@@ -54,15 +58,15 @@ class TBotHandler:
     def __init__(self):
         self.bot = AsyncTeleBot(API_KEY, state_storage=StateMemoryStorage())
         self.app = flask.Flask(__name__)
-        self.host = '0.0.0.0'
-        self.port = int(config('tbot_port'))
+        self.host = config('TELEGRAM_BOT_HANDLER_HOST')
+        self.port = int(config('TELEGRAM_BOT_HANDLER_PORT'))
         try:
             asyncio.run(self.bot.delete_webhook(timeout=30))
             asyncio.run(self.bot.log_out())
         except ApiTelegramException as e:
             pass
-        apihelper.API_URL = "http://localhost:8081/bot{0}/{1}"
-        asyncio_helper.API_URL = "http://localhost:8081/bot{0}/{1}"
+        apihelper.API_URL = f"http://{TELEGRAM_SERVER_HOST}:{TELEGRAM_SERVER_PORT}" + "/bot{0}/{1}"
+        asyncio_helper.API_URL = f"http://{TELEGRAM_SERVER_HOST}:{TELEGRAM_SERVER_PORT}" + "/bot{0}/{1}"
         self.__configure_router()
         self.__configure_bot()
 
@@ -88,15 +92,13 @@ class TBotHandler:
             await self.bot.delete_state(message.from_user.id, message.chat.id)
             async with aiohttp.ClientSession() as session:
                 # TODO: Добавить очередь сообщений между TBotHandler и Loader
-                async with session.post(f'http://{LOADER_HOST}:{LOADER_PORT}/api/download/start',
+                async with session.post(f'http://{DOWNLOADER_HOST}:{DOWNLOADER_PORT}/api/download/start',
                                         json={'chat_id': message.chat.id, 'message_id': message.id,
                                               'url': message.text}) as response:
-                    if response.status == 404:
+                    if response.status == HTTPStatus.NOT_FOUND:
                         await self.bot.reply_to(message, f'Некорректная ссылка')
-                    elif response.status == 202:
+                    elif response.status == HTTPStatus.OK:
                         await self.bot.reply_to(message, f'Загрузка началась')
-                    elif response.status == 401:
-                        await self.bot.reply_to(message, f'Невозможно загрузить видео без авторизации')
 
         @self.bot.message_handler(commands=['cancel'])
         async def __t_on_cancel(message: Message):
@@ -108,7 +110,7 @@ class TBotHandler:
 
     async def __config_webhook(self) -> bool:
         """
-        Устанавливает вебхук Телеграма на сервер `DOMAIN` с секретным ключом  `WEBHOOK_TOKEN`
+        Устанавливает веб-хук Телеграма на сервер `DOMAIN` с секретным ключом  `WEBHOOK_TOKEN`
 
         :return: True, если веб-хук был добавлен, иначе False
         """
@@ -116,23 +118,23 @@ class TBotHandler:
 
     async def __t_request_handler(self) -> Response:
         """
-        Обрабатывает поступающие от Телеграма запросы, вызывает срабатываение хэндлеров
+        Обрабатывает поступающие от Телеграма запросы, вызывает срабатывание хэндлеров
 
         :return: Response 200 в случае успеха, BadResponse 403 иначе
         """
         token_header_name = "X-Telegram-Bot-Api-Secret-Token"
         if request.headers.get(token_header_name) != WEBHOOK_TOKEN:
-            return abort(403)
+            return abort(HTTPStatus.FORBIDDEN)
         await self.bot.process_new_updates([Update.de_json(request.json)])
-        return Response()
+        return Response(status=HTTPStatus.OK)
 
     async def __main_page(self) -> Response:
         """
-        Обработывает GET-запросы на главную страницу
+        Обрабатывает GET-запросы на главную страницу
 
         :return: Response 200
         """
-        return Response(f'Everything is good', 200)
+        return Response(f'Everything is good', HTTPStatus.OK)
 
     async def __on_download_complete(self) -> Response:
         """
@@ -140,17 +142,28 @@ class TBotHandler:
 
         :return: Response 200
         """
-        payload = request.json
-        chat_id = int(payload['chat_id'])
-        message_id = int(payload['message_id'])
-        file_path = payload['file_path']
-        # TODO: Перенести выполнение в потоки
-        await self.__download_and_send(chat_id, message_id, file_path)
-        return Response()
+        payload: dict = request.json
+        chat_id = int(payload.get('chat_id', 0))
+        message_id = int(payload.get('message_id', 0))
+        file_path = payload.get('file_path', None)
+        error_code = payload.get('error_code', None)
+        if error_code is not None:
+            if error_code == HTTPStatus.UNAUTHORIZED:
+                message_text = 'Загрузка невозможна: требуется авторизация'
+            elif error_code == HTTPStatus.BAD_REQUEST:
+                message_text = 'Загрузка невозможна'
+            else:
+                message_text = 'Непредвиденная ошибка при попытке загрузки'
+            await self.bot.send_message(chat_id, message_text,
+                                        reply_parameters=ReplyParameters(message_id, chat_id, True))
+        else:
+            # TODO: Перенести выполнение в потоки
+            await self.__download_and_send(chat_id, message_id, file_path)
+        return Response(status=HTTPStatus.OK)
 
-    async def __download_and_send(self, chat_id: int, message_id: int, file_path: int) -> None:
+    async def __download_and_send(self, chat_id: int, message_id: int, file_path: str) -> None:
         """
-        Отправляет файл, находяшийся в `file_path`, ответом на сообщение (`chat_id`, `message_id`)
+        Отправляет файл, находящийся в `file_path`, ответом на сообщение (`chat_id`, `message_id`)
 
         :param chat_id: id чата, из которого произошел вызов
         :param message_id: id сообщения-вызова
@@ -182,8 +195,5 @@ class TBotHandler:
 
 if __name__ == '__main__':
     botik = TBotHandler()
-    asyncio.run(asyncio.sleep(2))
     botik.run()
     asyncio.run(botik.bot.close_session())
-# ngrok http port
-# Обновить домен
