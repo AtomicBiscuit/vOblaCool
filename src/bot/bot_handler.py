@@ -39,9 +39,9 @@ class DownloadVideoState(StatesGroup):
 class TBotHandler:
     """
     Класс-оболочка над Телеграм ботом, реализующая API для взаимодействия.
-    Определяет поведение бота, отправляет запросы на заргузку и обрабатывает ответы на них.
+    Определяет поведение бота, отправляет запросы на загрузку и обрабатывает ответы на них.
 
-    :param bot: Экземляр бота
+    :param bot: Экземпляр бота
     :type bot: :class: `telebot.async_telebot.AsyncTeleBot`
     :param app: Flask-приложения для общения с остальными модулями
     :type app: :class: `flask.app.Flask`
@@ -108,7 +108,7 @@ class TBotHandler:
 
     async def __config_webhook(self) -> bool:
         """
-        Устанавливает вебхук Телеграма на сервер `DOMAIN` с секретным ключом  `WEBHOOK_TOKEN`
+        Устанавливает веб-хук Телеграма на сервер `DOMAIN` с секретным ключом  `WEBHOOK_TOKEN`
 
         :return: True, если веб-хук был добавлен, иначе False
         """
@@ -116,7 +116,7 @@ class TBotHandler:
 
     async def __t_request_handler(self) -> Response:
         """
-        Обрабатывает поступающие от Телеграма запросы, вызывает срабатываение хэндлеров
+        Обрабатывает поступающие от Телеграма запросы, вызывает срабатывание хэндлеров
 
         :return: Response 200 в случае успеха, BadResponse 403 иначе
         """
@@ -128,7 +128,7 @@ class TBotHandler:
 
     async def __main_page(self) -> Response:
         """
-        Обработывает GET-запросы на главную страницу
+        Обрабатывает GET-запросы на главную страницу
 
         :return: Response 200
         """
@@ -150,7 +150,7 @@ class TBotHandler:
 
     async def __download_and_send(self, chat_id: int, message_id: int, file_path: int) -> None:
         """
-        Отправляет файл, находяшийся в `file_path`, ответом на сообщение (`chat_id`, `message_id`)
+        Отправляет файл, находящийся в `file_path`, ответом на сообщение (`chat_id`, `message_id`)
 
         :param chat_id: id чата, из которого произошел вызов
         :param message_id: id сообщения-вызова
