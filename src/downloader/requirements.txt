@@ -1,0 +1,5 @@
+aiohttp~=3.9.3
+python-decouple~=3.8
+flask[async]~=3.0.2
+pytube==15.0.0
+requests==2.31.0

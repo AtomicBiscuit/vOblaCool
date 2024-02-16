@@ -18,6 +18,10 @@ services:
       - '${TELEGRAM_BOT_HANDLER_PORT}:${TELEGRAM_BOT_HANDLER_PORT}'
     env_file:
       - ./.env
+    depends_on:
+      - bot_server
+    volumes:
+      - media-storage:/media
 
   downloader:
     build:
@@ -27,3 +31,8 @@ services:
       - '${DOWNLOADER_PORT}:${DOWNLOADER_PORT}'
     env_file:
       - ./.env
+    volumes:
+      - media-storage:/media
+
+volumes:
+  media-storage:

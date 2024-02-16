@@ -18,10 +18,13 @@ from telebot.types import Update, Message
 
 API_KEY = config('TELEGRAM_BOT_API_KEY')
 
-DOMAIN = config('TELEGRAM_BOT_HANDLER_HOST')
+DOMAIN = config('TELEGRAM_BOT_HANDLER_PROXY')
 
 DOWNLOADER_HOST = config('DOWNLOADER_HOST')
 DOWNLOADER_PORT = config('DOWNLOADER_PORT')
+
+TELEGRAM_SERVER_HOST = config('LOCAL_TELEGRAM_API_SERVER_HOST')
+TELEGRAM_SERVER_PORT = config('LOCAL_TELEGRAM_API_SERVER_PORT')
 
 WEBHOOK_TOKEN = config('TELEGRAM_BOT_WEBHOOK_TOKEN')
 
@@ -61,8 +64,8 @@ class TBotHandler:
             asyncio.run(self.bot.log_out())
         except ApiTelegramException as e:
             pass
-        apihelper.API_URL = f"http://{config('LOCAL_TELEGRAM_API_SERVER_HOST')}:{config('LOCAL_TELEGRAM_API_SERVER_PORT')}/bot{0}/{1}"
-        asyncio_helper.API_URL = f"http://{config('LOCAL_TELEGRAM_API_SERVER_HOST')}:{config('LOCAL_TELEGRAM_API_SERVER_PORT')}/bot{0}/{1}"
+        apihelper.API_URL = f"http://{TELEGRAM_SERVER_HOST}:{TELEGRAM_SERVER_PORT}" + "/bot{0}/{1}"
+        asyncio_helper.API_URL = f"http://{TELEGRAM_SERVER_HOST}:{TELEGRAM_SERVER_PORT}" + "/bot{0}/{1}"
         self.__configure_router()
         self.__configure_bot()
 
@@ -93,7 +96,7 @@ class TBotHandler:
                                               'url': message.text}) as response:
                     if response.status == 404:
                         await self.bot.reply_to(message, f'Некорректная ссылка')
-                    elif response.status == 202:
+                    elif response.status == 200:
                         await self.bot.reply_to(message, f'Загрузка началась')
                     elif response.status == 401:
                         await self.bot.reply_to(message, f'Невозможно загрузить видео без авторизации')
@@ -182,8 +185,5 @@ class TBotHandler:
 
 if __name__ == '__main__':
     botik = TBotHandler()
-    asyncio.run(asyncio.sleep(2))
     botik.run()
     asyncio.run(botik.bot.close_session())
-# ngrok http port
-# Обновить домен

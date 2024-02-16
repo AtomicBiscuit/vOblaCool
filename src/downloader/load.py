@@ -13,7 +13,7 @@ from flask import request, Response
 from pytube import extract, YouTube
 from pytube.exceptions import RegexMatchError
 
-TBOT_URL = 'http://localhost'
+TBOT_HOST = config('TELEGRAM_BOT_HANDLER_HOST')
 TBOT_PORT = config('TELEGRAM_BOT_HANDLER_PORT')
 
 
@@ -34,9 +34,9 @@ class QueueImitator:
             return
         item = self.queue.get_nowait()
         videos = YouTube(item[0]).streams.filter(progressive=True, file_extension='mp4', resolution='720p').desc()
-        file_path = videos.first().download('../../media', filename_prefix=str(Loader.video_id) + '_')
+        file_path = videos.first().download('../media', filename_prefix=str(Loader.video_id) + '_')
         Loader.video_id += 1
-        res = req.post(f'{TBOT_URL}:{TBOT_PORT}/api/download/complete',
+        res = req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete',
                        json={'chat_id': item[1], 'message_id': item[2], 'file_path': file_path})
         self.queue.task_done()
 
