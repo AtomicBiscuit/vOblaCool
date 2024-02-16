@@ -16,14 +16,14 @@ from telebot.asyncio_storage import StateMemoryStorage
 from telebot.types import InputFile, ReplyParameters
 from telebot.types import Update, Message
 
-API_KEY = config('tbot_apikey')
+API_KEY = config('TELEGRAM_BOT_API_KEY')
 
-DOMAIN = config('tbot_url')
+DOMAIN = config('TELEGRAM_BOT_HANDLER_HOST')
 
-LOADER_HOST = config('loader_host')
-LOADER_PORT = config('loader_port')
+DOWNLOADER_HOST = config('DOWNLOADER_HOST')
+DOWNLOADER_PORT = config('DOWNLOADER_PORT')
 
-WEBHOOK_TOKEN = config('tbot_webhook_token')
+WEBHOOK_TOKEN = config('TELEGRAM_BOT_WEBHOOK_TOKEN')
 
 
 class DownloadVideoState(StatesGroup):
@@ -54,15 +54,15 @@ class TBotHandler:
     def __init__(self):
         self.bot = AsyncTeleBot(API_KEY, state_storage=StateMemoryStorage())
         self.app = flask.Flask(__name__)
-        self.host = '0.0.0.0'
-        self.port = int(config('tbot_port'))
+        self.host = config('TELEGRAM_BOT_HANDLER_HOST')
+        self.port = int(config('TELEGRAM_BOT_HANDLER_PORT'))
         try:
             asyncio.run(self.bot.delete_webhook(timeout=30))
             asyncio.run(self.bot.log_out())
         except ApiTelegramException as e:
             pass
-        apihelper.API_URL = "http://localhost:8081/bot{0}/{1}"
-        asyncio_helper.API_URL = "http://localhost:8081/bot{0}/{1}"
+        apihelper.API_URL = f"http://{config('LOCAL_TELEGRAM_API_SERVER_HOST')}:{config('LOCAL_TELEGRAM_API_SERVER_PORT')}/bot{0}/{1}"
+        asyncio_helper.API_URL = f"http://{config('LOCAL_TELEGRAM_API_SERVER_HOST')}:{config('LOCAL_TELEGRAM_API_SERVER_PORT')}/bot{0}/{1}"
         self.__configure_router()
         self.__configure_bot()
 
@@ -88,7 +88,7 @@ class TBotHandler:
             await self.bot.delete_state(message.from_user.id, message.chat.id)
             async with aiohttp.ClientSession() as session:
                 # TODO: Добавить очередь сообщений между TBotHandler и Loader
-                async with session.post(f'http://{LOADER_HOST}:{LOADER_PORT}/api/download/start',
+                async with session.post(f'http://{DOWNLOADER_HOST}:{DOWNLOADER_PORT}/api/download/start',
                                         json={'chat_id': message.chat.id, 'message_id': message.id,
                                               'url': message.text}) as response:
                     if response.status == 404:

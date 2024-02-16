@@ -1,5 +1,7 @@
-FROM ubuntu:20.04
+FROM ubuntu:latest
 FROM python:3.10-slim
+
+LABEL t="local_telegram_api_server"
 
 RUN apt-get update && apt-get install -y make git zlib1g-dev libssl-dev gperf cmake g++
 
@@ -16,7 +18,4 @@ RUN cmake --build . --target install
 
 WORKDIR ../..
 
-EXPOSE 8081
-
-# Честно не знаю как передать сюда переменные окружения, но здесь они должны быть TODO: Добавить
-ENTRYPOINT telegram-bot-api/bin/telegram-bot-api --local --api-id= --api-hash=
+ENTRYPOINT telegram-bot-api/bin/telegram-bot-api --local --api-id=${LOCAL_TELEGRAM_API_ID} --api-hash=${LOCAL_TELEGRAM_API_HASH}

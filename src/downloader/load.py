@@ -14,7 +14,7 @@ from pytube import extract, YouTube
 from pytube.exceptions import RegexMatchError
 
 TBOT_URL = 'http://localhost'
-TBOT_PORT = config('tbot_port')
+TBOT_PORT = config('TELEGRAM_BOT_HANDLER_PORT')
 
 
 # TODO: Заменить полноценной очередью
@@ -69,8 +69,8 @@ class Loader:
     def __init__(self):
         self.app = flask.Flask(__name__)
         self.queue = QueueImitator()  # TODO: Убрать
-        self.host = config('loader_host')
-        self.port = int(config('loader_port'))
+        self.host = config('DOWNLOADER_HOST')
+        self.port = int(config('DOWNLOADER_PORT'))
         self.__configure_router()
 
     async def __main_page(self) -> Response:
