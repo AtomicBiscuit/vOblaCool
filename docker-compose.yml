@@ -29,10 +29,30 @@ services:
       dockerfile: ./Dockerfile
     ports:
       - '${DOWNLOADER_PORT}:${DOWNLOADER_PORT}'
+    restart: always
     env_file:
       - ./.env
     volumes:
       - media-storage:/media
+    depends_on:
+      - broker
+
+  worker:
+    build:
+      context: ./src/worker
+      dockerfile: ./Dockerfile
+    restart: always
+    env_file:
+      - ./.env
+    depends_on:
+      - broker
+      - downloader
+
+  broker:
+    image: 'rabbitmq'
+    ports:
+      - '${RMQ_PORT}:${RMQ_PORT}'
+      - '15672:15672'
 
 volumes:
   media-storage:

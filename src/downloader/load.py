@@ -1,13 +1,14 @@
 """
 Управление состоянием загружаемых видеозаписей
 """
-
+import json
 import threading
 from http import HTTPStatus
 from queue import Queue
 from urllib.parse import urlparse
 
 import flask
+import pika
 import requests as req
 from decouple import config
 from flask import request, Response
@@ -17,6 +18,8 @@ from pytube.exceptions import RegexMatchError, AgeRestrictedError, VideoPrivate,
 TBOT_HOST = config('TELEGRAM_BOT_HANDLER_HOST')
 TBOT_PORT = config('TELEGRAM_BOT_HANDLER_PORT')
 
+RMQ_HOST = config('RMQ_HOST')
+RMQ_PORT = config('RMQ_PORT')
 
 # TODO: Заменить полноценной очередью
 class QueueImitator:
@@ -49,7 +52,7 @@ class QueueImitator:
             self.queue.task_done()
             return
         req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete',
-                 json={'chat_id': item[1], 'message_id': item[2], 'file_path': file_path})
+                 json={'chat_id': item[1], 'message_id': item[2], 'file_path': file_path}, timeout=1000)
         self.queue.task_done()
 
 
@@ -83,6 +86,9 @@ class Loader:
         self.queue = QueueImitator()  # TODO: Убрать
         self.host = config('DOWNLOADER_HOST')
         self.port = int(config('DOWNLOADER_PORT'))
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=RMQ_HOST, port=RMQ_PORT))
+        self.channel = self.connection.channel()
+        self.channel.queue_declare('download')
         self.__configure_router()
 
     async def __main_page(self) -> Response:
@@ -120,6 +126,11 @@ class Loader:
         url_raw = payload['url']
         chat_id = payload['chat_id']
         message_id = payload['message_id']
+        self.channel.basic_publish(
+            exchange='',
+            routing_key='download',
+            body=json.dumps({'url': url_raw, 'chat_id': chat_id, 'message_id': message_id, 'hosting': 'youtube'}),
+        )
         if self.validate_youtube(url_raw):
             self.queue.add_task(url_raw, chat_id, message_id)
             return Response(status=HTTPStatus.OK)
@@ -147,3 +158,4 @@ class Loader:
 if __name__ == '__main__':
     app = Loader()
     app.run()
+    app.connection.close()
