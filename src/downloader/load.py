@@ -4,7 +4,6 @@
 import json
 import threading
 from http import HTTPStatus
-from queue import Queue
 from typing import NoReturn, Optional
 from urllib.parse import urlparse
 
@@ -14,9 +13,9 @@ import requests as req
 from decouple import config
 from flask import request, Response
 from pika.adapters.blocking_connection import BlockingChannel
-from pika.spec import BasicProperties
-from pytube import extract, YouTube
-from pytube.exceptions import RegexMatchError, AgeRestrictedError, VideoPrivate, PytubeError
+from pika.spec import BasicProperties, Basic
+from pytube import extract
+from pytube.exceptions import RegexMatchError
 
 TBOT_HOST = config('TELEGRAM_BOT_HANDLER_HOST')
 TBOT_PORT = config('TELEGRAM_BOT_HANDLER_PORT')
@@ -29,16 +28,25 @@ class Loader:
     """
     Проверяет url на корректность, определяет класс-загрузчик, общается с TBotHandler
 
-    :param video_id: (не) Уникальный идентификатор видеозаписи
+    :param video_id: Уникальный идентификатор видеозаписи
     :type video_id: :class: `int`
     :param netlocs: Список всех поддерживаемых доменов
     :type netlocs: :class: `Dict[List[str]]`
-    :param app: Flask-приложения для общения с остальными модулями
+    :param app: Flask-приложение для общения с другими модулями
     :type app: :class: `flask.app.Flask`
     :param host: Хост для запуска
     :type host: :class: `str`
     :param port: Порт для запуска
     :type port: :class: `int`
+    :param connection: Объект соединения с RabbitMQ
+    :type connection: :class: `pika.BlockingConnection`
+    :param channel: Канал для общения с RabbitMQ
+    :type channel: :class: `pika.BlockingChannel`
+    :param RPC_connection: Объект соединения с RabbitMQ для получения ответных сообщений
+    :param RPC_connection: (non-thread-safe) Использовать только внутри одного потока
+    :type RPC_connection: :class: `pika.BlockingConnection`
+    :param RPC_channel: Канал для общения с RabbitMQ
+    :type RPC_channel: :class: `pika.BlockingChannel`
     """
     netlocs = {
         'youtube': [
@@ -55,22 +63,25 @@ class Loader:
         self.host = config('DOWNLOADER_HOST')
         self.port = int(config('DOWNLOADER_PORT'))
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=RMQ_HOST, port=RMQ_PORT, heartbeat=0))
+        self.RPC_connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=RMQ_HOST, port=RMQ_PORT, heartbeat=0))
         self.channel = self.connection.channel()
+        self.RPC_channel = self.RPC_connection.channel()
         self.channel.queue_declare('task_queue')
-        self.channel.queue_declare('answer_queue')
-        self.channel.basic_consume('answer_queue', self.__process_answer, auto_ack=True)
+        self.RPC_channel.queue_declare('answer_queue')
+        self.RPC_channel.basic_consume('answer_queue', self.__process_answer, auto_ack=True)
         self.__configure_router()
 
     @staticmethod
-    def __process_answer(channel: BlockingChannel, method, properties: BasicProperties, body: bytes) -> NoReturn:
+    def __process_answer(channel: BlockingChannel, method: Basic.Deliver, properties: BasicProperties,
+                         body: bytes) -> NoReturn:
         """
-        Обработка ответов
+        Обработка полученных от worker-а ответов
         """
         payload = json.loads(body.decode("utf-8"))
         if payload['type'] == 'download':
             # TODO: Сохранять file_id в БД
             req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete', json=payload)
-        raise RuntimeError(str(payload))
 
     @staticmethod
     async def __main_page() -> Response:
@@ -88,7 +99,7 @@ class Loader:
 
         :param host: Видео-хостинг
         :param url_raw: url для проверки
-        :return: Video_id если ссылка корректна, None иначе
+        :return: video_id если ссылка корректна, иначе None
         """
         url = urlparse(url_raw)
         if url.netloc not in Loader.netlocs[host]:
@@ -130,23 +141,20 @@ class Loader:
         )
         return Response(status=HTTPStatus.OK)
 
-    def __configure_router(self):
+    def __configure_router(self) -> NoReturn:
         """
         Прописывает все пути для взаимодействия с Flask
-
-        :return: None
         """
         self.app.add_url_rule('/', view_func=self.__main_page, methods=['GET'])
         self.app.add_url_rule('/api/download/start', view_func=self.__download_start, methods=['POST'])
 
-    def run(self, debug: bool = True) -> None:
+    def run(self, debug: bool = True) -> NoReturn:
         """
         Запускает приложение
 
         :param debug: Запуск приложения в debug режиме
-        :return: None
         """
-        threading.Thread(target=self.channel.start_consuming).start()
+        threading.Thread(target=self.RPC_channel.start_consuming).start()
         self.app.run(debug=debug, host=self.host, port=self.port, use_reloader=False)
 
 

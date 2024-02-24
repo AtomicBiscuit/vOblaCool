@@ -4,6 +4,7 @@
 
 import asyncio
 from http import HTTPStatus
+from typing import NoReturn
 
 import aiohttp
 import flask
@@ -68,9 +69,9 @@ class TBotHandler:
         self.__configure_router()
         self.__configure_bot()
 
-    def __configure_bot(self):
+    def __configure_bot(self) -> NoReturn:
         """
-        Настройка, добавление хэндлеров и веб-хуков бота
+        Добавление и настройка хэндлеров и веб-хуков бота
 
         :return: None
         """
@@ -112,7 +113,7 @@ class TBotHandler:
 
     async def __config_webhook(self) -> bool:
         """
-        Устанавливает веб-хук Телеграма на сервер `DOMAIN` с секретным ключом  `WEBHOOK_TOKEN`
+        Устанавливает веб-хук Telegram на сервер `DOMAIN` с секретным ключом  `WEBHOOK_TOKEN`
 
         :return: True, если веб-хук был добавлен, иначе False
         """
@@ -120,7 +121,7 @@ class TBotHandler:
 
     async def __t_request_handler(self) -> Response:
         """
-        Обрабатывает поступающие от Телеграма запросы, вызывает срабатывание хэндлеров
+        Обрабатывает поступающие от Telegram запросы, вызывает срабатывание хэндлеров
 
         :return: Response 200 в случае успеха, BadResponse 403 иначе
         """
@@ -164,22 +165,19 @@ class TBotHandler:
                                       reply_parameters=ReplyParameters(message_id, chat_id, True))
         return Response(status=HTTPStatus.OK)
 
-    def __configure_router(self) -> None:
+    def __configure_router(self) -> NoReturn:
         """
         Прописывает все пути для взаимодействия с Flask
-
-        :return: None
         """
         self.app.add_url_rule('/', view_func=self.__main_page, methods=['GET'])
         self.app.add_url_rule('/', view_func=self.__t_request_handler, methods=['POST'])
         self.app.add_url_rule('/api/download/complete', view_func=self.__on_download_complete, methods=['POST'])
 
-    def run(self, debug: bool = True) -> None:
+    def run(self, debug: bool = True) -> NoReturn:
         """
         Запускает приложение
 
         :param debug: Запуск приложения в debug режиме
-        :return: None
         """
         self.app.run(debug=debug, host=self.host, port=self.port, use_reloader=False)
 
