@@ -44,7 +44,6 @@ class Worker:
         message_id = payload['message_id']
         hosting = payload['hosting']
         print(url, chat_id, message_id, hosting)
-        self.channel.basic_ack(delivery_tag=method.delivery_tag)
 
     def run(self) -> None:
         """
