@@ -4,6 +4,7 @@
 
 import asyncio
 from http import HTTPStatus
+from typing import NoReturn
 
 import aiohttp
 import flask
@@ -65,14 +66,12 @@ class TBotHandler:
             asyncio.run(self.bot.log_out())
         except ApiTelegramException as e:
             pass
-        apihelper.API_URL = f"http://{TELEGRAM_SERVER_HOST}:{TELEGRAM_SERVER_PORT}" + "/bot{0}/{1}"
-        asyncio_helper.API_URL = f"http://{TELEGRAM_SERVER_HOST}:{TELEGRAM_SERVER_PORT}" + "/bot{0}/{1}"
         self.__configure_router()
         self.__configure_bot()
 
-    def __configure_bot(self):
+    def __configure_bot(self) -> NoReturn:
         """
-        Настройка, добавление хэндлеров и веб-хуков бота
+        Добавление и настройка хэндлеров и веб-хуков бота
 
         :return: None
         """
@@ -86,31 +85,35 @@ class TBotHandler:
             await self.bot.set_state(message.from_user.id, DownloadVideoState.link, message.chat.id)
             await self.bot.reply_to(message, 'Введите ссылку: ')
 
-        @self.bot.message_handler(state=DownloadVideoState.link)
-        async def __t_on_download_link(message: Message):
-            await self.bot.reply_to(message, f'Ссылка получена')
-            await self.bot.delete_state(message.from_user.id, message.chat.id)
-            async with aiohttp.ClientSession() as session:
-                # TODO: Добавить очередь сообщений между TBotHandler и Loader
-                async with session.post(f'http://{DOWNLOADER_HOST}:{DOWNLOADER_PORT}/api/download/start',
-                                        json={'chat_id': message.chat.id, 'message_id': message.id,
-                                              'url': message.text}) as response:
-                    if response.status == HTTPStatus.NOT_FOUND:
-                        await self.bot.reply_to(message, f'Некорректная ссылка')
-                    elif response.status == HTTPStatus.OK:
-                        await self.bot.reply_to(message, f'Загрузка началась')
-
         @self.bot.message_handler(commands=['cancel'])
         async def __t_on_cancel(message: Message):
             await self.bot.delete_state(message.from_user.id, message.chat.id)
             await self.bot.reply_to(message, "Вернулись в начало")
 
+        @self.bot.message_handler(state=DownloadVideoState.link)
+        async def __t_on_download_link(message: Message):
+            await self.bot.reply_to(message, f'Ссылка получена')
+            await self.bot.delete_state(message.from_user.id, message.chat.id)
+            session = await asyncio_helper.session_manager.get_session()
+            async with session.post(f'http://{DOWNLOADER_HOST}:{DOWNLOADER_PORT}/api/download/start',
+                                    json={'chat_id': message.chat.id, 'message_id': message.id,
+                                          'url': message.text}) as response:
+                if response.status == HTTPStatus.NOT_FOUND:
+                    text = 'Некорректная ссылка'
+                elif response.status == HTTPStatus.OK:
+                    text = 'Видео добавлено в очередь'
+                else:
+                    text = 'Непредвиденная ошибка'
+            await self.bot.reply_to(message, text)
+
+        apihelper.API_URL = f"http://{TELEGRAM_SERVER_HOST}:{TELEGRAM_SERVER_PORT}" + "/bot{0}/{1}"
+        asyncio_helper.API_URL = f"http://{TELEGRAM_SERVER_HOST}:{TELEGRAM_SERVER_PORT}" + "/bot{0}/{1}"
         asyncio.run(self.__config_webhook())
         self.bot.add_custom_filter(asyncio_filters.StateFilter(self.bot))
 
     async def __config_webhook(self) -> bool:
         """
-        Устанавливает веб-хук Телеграма на сервер `DOMAIN` с секретным ключом  `WEBHOOK_TOKEN`
+        Устанавливает веб-хук Telegram на сервер `DOMAIN` с секретным ключом  `WEBHOOK_TOKEN`
 
         :return: True, если веб-хук был добавлен, иначе False
         """
@@ -118,7 +121,7 @@ class TBotHandler:
 
     async def __t_request_handler(self) -> Response:
         """
-        Обрабатывает поступающие от Телеграма запросы, вызывает срабатывание хэндлеров
+        Обрабатывает поступающие от Telegram запросы, вызывает срабатывание хэндлеров
 
         :return: Response 200 в случае успеха, BadResponse 403 иначе
         """
@@ -128,7 +131,8 @@ class TBotHandler:
         await self.bot.process_new_updates([Update.de_json(request.json)])
         return Response(status=HTTPStatus.OK)
 
-    async def __main_page(self) -> Response:
+    @staticmethod
+    async def __main_page() -> Response:
         """
         Обрабатывает GET-запросы на главную страницу
 
@@ -145,7 +149,7 @@ class TBotHandler:
         payload: dict = request.json
         chat_id = int(payload.get('chat_id', 0))
         message_id = int(payload.get('message_id', 0))
-        file_path = payload.get('file_path', None)
+        file_id = payload.get('file_id', None)
         error_code = payload.get('error_code', None)
         if error_code is not None:
             if error_code == HTTPStatus.UNAUTHORIZED:
@@ -157,38 +161,23 @@ class TBotHandler:
             await self.bot.send_message(chat_id, message_text,
                                         reply_parameters=ReplyParameters(message_id, chat_id, True))
         else:
-            # TODO: Перенести выполнение в потоки
-            await self.__download_and_send(chat_id, message_id, file_path)
+            await self.bot.send_video(chat_id, file_id,
+                                      reply_parameters=ReplyParameters(message_id, chat_id, True))
         return Response(status=HTTPStatus.OK)
 
-    async def __download_and_send(self, chat_id: int, message_id: int, file_path: str) -> None:
-        """
-        Отправляет файл, находящийся в `file_path`, ответом на сообщение (`chat_id`, `message_id`)
-
-        :param chat_id: id чата, из которого произошел вызов
-        :param message_id: id сообщения-вызова
-        :param file_path: Полный путь до отправляемого файла
-        :return: None
-        """
-        await self.bot.send_video(chat_id, InputFile(file_path),
-                                  reply_parameters=ReplyParameters(message_id, chat_id, True))
-
-    def __configure_router(self) -> None:
+    def __configure_router(self) -> NoReturn:
         """
         Прописывает все пути для взаимодействия с Flask
-
-        :return: None
         """
         self.app.add_url_rule('/', view_func=self.__main_page, methods=['GET'])
         self.app.add_url_rule('/', view_func=self.__t_request_handler, methods=['POST'])
         self.app.add_url_rule('/api/download/complete', view_func=self.__on_download_complete, methods=['POST'])
 
-    def run(self, debug: bool = True) -> None:
+    def run(self, debug: bool = True) -> NoReturn:
         """
         Запускает приложение
 
         :param debug: Запуск приложения в debug режиме
-        :return: None
         """
         self.app.run(debug=debug, host=self.host, port=self.port, use_reloader=False)
 

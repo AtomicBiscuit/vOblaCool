@@ -20,8 +20,6 @@ services:
       - ./.env
     depends_on:
       - bot_server
-    volumes:
-      - media-storage:/media
 
   downloader:
     build:
@@ -29,10 +27,39 @@ services:
       dockerfile: ./Dockerfile
     ports:
       - '${DOWNLOADER_PORT}:${DOWNLOADER_PORT}'
+    restart: always
     env_file:
       - ./.env
+    depends_on:
+      - broker
+
+  worker:
+    build:
+      context: ./src/worker
+      dockerfile: ./Dockerfile
+    restart: always
+    env_file:
+      - ./.env
+    depends_on:
+      - broker
     volumes:
       - media-storage:/media
+
+  y_loader:
+    build:
+      context: ./src/youtube
+      dockerfile: ./Dockerfile
+    env_file:
+      - ./.env
+    ports:
+      - '${YOUTUBE_LOADER_PORT}:${YOUTUBE_LOADER_PORT}'
+    volumes:
+      - media-storage:/media
+
+  broker:
+    image: 'rabbitmq'
+    ports:
+      - '${RMQ_PORT}:${RMQ_PORT}'
 
 volumes:
   media-storage:

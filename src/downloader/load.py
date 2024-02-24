@@ -1,149 +1,164 @@
 """
 Управление состоянием загружаемых видеозаписей
 """
-
+import json
 import threading
 from http import HTTPStatus
-from queue import Queue
+from typing import NoReturn, Optional
 from urllib.parse import urlparse
 
 import flask
+import pika
 import requests as req
 from decouple import config
 from flask import request, Response
-from pytube import extract, YouTube
-from pytube.exceptions import RegexMatchError, AgeRestrictedError, VideoPrivate, PytubeError
+from pika.adapters.blocking_connection import BlockingChannel
+from pika.spec import BasicProperties, Basic
+from pytube import extract
+from pytube.exceptions import RegexMatchError
 
 TBOT_HOST = config('TELEGRAM_BOT_HANDLER_HOST')
 TBOT_PORT = config('TELEGRAM_BOT_HANDLER_PORT')
 
-
-# TODO: Заменить полноценной очередью
-class QueueImitator:
-    def __init__(self):
-        self.queue = Queue(-1)
-
-    def add_task(self, url, chat_id, message_id):
-        self.queue.put_nowait((url, chat_id, message_id))
-        self.start_task()
-
-    def start_task(self):
-        threading.Thread(target=self.download).start()
-
-    def download(self):
-        if self.queue.empty():
-            return
-        item = self.queue.get_nowait()
-        try:
-            videos = YouTube(item[0]).streams.filter(progressive=True, file_extension='mp4', resolution='720p').desc()
-            file_path = videos.first().download('../media', filename_prefix=str(Loader.video_id) + '_')
-            Loader.video_id += 1
-        except (AgeRestrictedError, VideoPrivate) as e:
-            req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete',
-                     json={'chat_id': item[1], 'message_id': item[2], 'error_code': HTTPStatus.UNAUTHORIZED})
-            self.queue.task_done()
-            return
-        except PytubeError as e:
-            req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete',
-                     json={'chat_id': item[1], 'message_id': item[2], 'error_code': HTTPStatus.BAD_REQUEST})
-            self.queue.task_done()
-            return
-        req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete',
-                 json={'chat_id': item[1], 'message_id': item[2], 'file_path': file_path})
-        self.queue.task_done()
+RMQ_HOST = config('RMQ_HOST')
+RMQ_PORT = config('RMQ_PORT')
 
 
 class Loader:
     """
     Проверяет url на корректность, определяет класс-загрузчик, общается с TBotHandler
 
-    :param video_id: (не) Уникальный идентификатор видеозаписи
+    :param video_id: Уникальный идентификатор видеозаписи
     :type video_id: :class: `int`
-    :param youtube_netlocs: Список всех доменов youtube
-    :type youtube_netlocs: :class: `List[str]`
-    :param app: Flask-приложения для общения с остальными модулями
+    :param netlocs: Список всех поддерживаемых доменов
+    :type netlocs: :class: `Dict[List[str]]`
+    :param app: Flask-приложение для общения с другими модулями
     :type app: :class: `flask.app.Flask`
     :param host: Хост для запуска
     :type host: :class: `str`
     :param port: Порт для запуска
     :type port: :class: `int`
+    :param connection: Объект соединения с RabbitMQ
+    :type connection: :class: `pika.BlockingConnection`
+    :param channel: Канал для общения с RabbitMQ
+    :type channel: :class: `pika.BlockingChannel`
+    :param RPC_connection: Объект соединения с RabbitMQ для получения ответных сообщений
+    :param RPC_connection: (non-thread-safe) Использовать только внутри одного потока
+    :type RPC_connection: :class: `pika.BlockingConnection`
+    :param RPC_channel: Канал для общения с RabbitMQ
+    :type RPC_channel: :class: `pika.BlockingChannel`
     """
-    # TODO: Убрать video_id, заменить на primary_key в БД
-    video_id = 0
-    youtube_netlocs = [
-        'www.youtube.com',
-        'www.youtube-nocookie.com',
-        'm.youtube.com'
-        'youtube.com',
-        'youtu.be'
-    ]
+    netlocs = {
+        'youtube': [
+            'www.youtube.com',
+            'www.youtube-nocookie.com',
+            'm.youtube.com'
+            'youtube.com',
+            'youtu.be'
+        ]
+    }
 
     def __init__(self):
         self.app = flask.Flask(__name__)
-        self.queue = QueueImitator()  # TODO: Убрать
         self.host = config('DOWNLOADER_HOST')
         self.port = int(config('DOWNLOADER_PORT'))
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=RMQ_HOST, port=RMQ_PORT, heartbeat=0))
+        self.RPC_connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=RMQ_HOST, port=RMQ_PORT, heartbeat=0))
+        self.channel = self.connection.channel()
+        self.RPC_channel = self.RPC_connection.channel()
+        self.channel.queue_declare('task_queue')
+        self.RPC_channel.queue_declare('answer_queue')
+        self.RPC_channel.basic_consume('answer_queue', self.__process_answer, auto_ack=True)
         self.__configure_router()
 
-    async def __main_page(self) -> Response:
+    @staticmethod
+    def __process_answer(channel: BlockingChannel, method: Basic.Deliver, properties: BasicProperties,
+                         body: bytes) -> NoReturn:
+        """
+        Обработка полученных от worker-а ответов
+        """
+        payload = json.loads(body.decode("utf-8"))
+        if payload['type'] == 'download':
+            # TODO: Сохранять file_id в БД
+            req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete', json=payload)
+
+    @staticmethod
+    async def __main_page() -> Response:
         """
         Обрабатывает GET-запросы на главную страницу
 
         :return: Response 200
         """
-        return Response(f'Everything good', HTTPStatus.OK)
+        return Response(f'Ok', HTTPStatus.OK)
 
     @staticmethod
-    def validate_youtube(url_raw: str):
+    def extract_id(url_raw: str, host: str) -> Optional[str]:
         """
-        Проверяет ссылку на принадлежность домену youtube
+        Проверяет ссылку на принадлежность домену
 
+        :param host: Видео-хостинг
         :param url_raw: url для проверки
-        :return: True если ссылка корректна, False иначе
+        :return: video_id если ссылка корректна, иначе None
         """
         url = urlparse(url_raw)
-        if url.netloc not in Loader.youtube_netlocs:
-            return False
+        if url.netloc not in Loader.netlocs[host]:
+            return None
         try:
-            extract.video_id(url_raw)
-            return True
+            if host == 'youtube':
+                return extract.video_id(url_raw)
         except RegexMatchError as e:
-            return False
+            return None
 
     async def __download_start(self) -> Response:
         """
-        Обрабатывает POST-запрос на начало загрузки, определяет видео-хостинг, запускает процесс загрузки
+        Обрабатывает POST-запрос на начало загрузки, определяет видео-хостинг, добавляет задачу в очередь
 
-        :return: Response 200 если ссылка верна, BadResponse 404 иначе
+        :return: Response 200 если ссылка верная, BadResponse 404 иначе
         """
         payload = request.json
         url_raw = payload['url']
         chat_id = payload['chat_id']
         message_id = payload['message_id']
-        if self.validate_youtube(url_raw):
-            self.queue.add_task(url_raw, chat_id, message_id)
-            return Response(status=HTTPStatus.OK)
-        return Response(status=HTTPStatus.NOT_FOUND)
+        video_id = None
+        hosting = None
+        if self.extract_id(url_raw, 'youtube'):
+            video_id = self.extract_id(url_raw, 'youtube')
+            hosting = 'youtube'
+        if video_id is None:
+            return Response(status=HTTPStatus.NOT_FOUND)
+        self.channel.basic_publish(
+            exchange='',
+            routing_key='task_queue',
+            body=json.dumps({
+                'type': 'download',
+                'url': url_raw,
+                'video_id': video_id,
+                'chat_id': chat_id,
+                'message_id': message_id,
+                'hosting': hosting
+            }),
+        )
+        return Response(status=HTTPStatus.OK)
 
-    def __configure_router(self):
+    def __configure_router(self) -> NoReturn:
         """
         Прописывает все пути для взаимодействия с Flask
-
-        :return: None
         """
         self.app.add_url_rule('/', view_func=self.__main_page, methods=['GET'])
         self.app.add_url_rule('/api/download/start', view_func=self.__download_start, methods=['POST'])
 
-    def run(self, debug: bool = True) -> None:
+    def run(self, debug: bool = True) -> NoReturn:
         """
         Запускает приложение
 
         :param debug: Запуск приложения в debug режиме
-        :return: None
         """
+        threading.Thread(target=self.RPC_channel.start_consuming).start()
         self.app.run(debug=debug, host=self.host, port=self.port, use_reloader=False)
 
 
 if __name__ == '__main__':
     app = Loader()
     app.run()
+    app.connection.close()
