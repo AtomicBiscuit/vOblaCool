@@ -6,7 +6,6 @@ import asyncio
 from http import HTTPStatus
 from typing import NoReturn
 
-import aiohttp
 import flask
 from decouple import config
 from flask import abort, Response, request
@@ -15,7 +14,7 @@ from telebot.async_telebot import AsyncTeleBot
 from telebot.asyncio_handler_backends import State, StatesGroup
 from telebot.asyncio_helper import ApiTelegramException
 from telebot.asyncio_storage import StateMemoryStorage
-from telebot.types import InputFile, ReplyParameters
+from telebot.types import ReplyParameters
 from telebot.types import Update, Message
 
 API_KEY = config('TELEGRAM_BOT_API_KEY')
@@ -36,7 +35,7 @@ class DownloadVideoState(StatesGroup):
     Состояния нужные для скачивания видео
 
     :param link: Получение ссылки
-    :type link: `telebot.asyncio_handler_backends.State`
+    :type link: :class: `telebot.asyncio_handler_backends.State`
     """
     link = State()
 
@@ -66,14 +65,12 @@ class TBotHandler:
             asyncio.run(self.bot.log_out())
         except ApiTelegramException as e:
             pass
-        self.__configure_router()
-        self.__configure_bot()
+        self.configure_router()
+        self.configure_bot()
 
-    def __configure_bot(self) -> NoReturn:
+    def configure_bot(self) -> NoReturn:
         """
         Добавление и настройка хэндлеров и веб-хуков бота
-
-        :return: None
         """
 
         @self.bot.message_handler(commands=['start'])
@@ -108,10 +105,10 @@ class TBotHandler:
 
         apihelper.API_URL = f"http://{TELEGRAM_SERVER_HOST}:{TELEGRAM_SERVER_PORT}" + "/bot{0}/{1}"
         asyncio_helper.API_URL = f"http://{TELEGRAM_SERVER_HOST}:{TELEGRAM_SERVER_PORT}" + "/bot{0}/{1}"
-        asyncio.run(self.__config_webhook())
+        asyncio.run(self.config_webhook())
         self.bot.add_custom_filter(asyncio_filters.StateFilter(self.bot))
 
-    async def __config_webhook(self) -> bool:
+    async def config_webhook(self) -> bool:
         """
         Устанавливает веб-хук Telegram на сервер `DOMAIN` с секретным ключом  `WEBHOOK_TOKEN`
 
@@ -119,7 +116,7 @@ class TBotHandler:
         """
         return await self.bot.set_webhook(url=DOMAIN, secret_token=WEBHOOK_TOKEN)
 
-    async def __t_request_handler(self) -> Response:
+    async def t_request_handler(self) -> Response:
         """
         Обрабатывает поступающие от Telegram запросы, вызывает срабатывание хэндлеров
 
@@ -132,7 +129,7 @@ class TBotHandler:
         return Response(status=HTTPStatus.OK)
 
     @staticmethod
-    async def __main_page() -> Response:
+    async def main_page() -> Response:
         """
         Обрабатывает GET-запросы на главную страницу
 
@@ -140,7 +137,7 @@ class TBotHandler:
         """
         return Response(f'Everything is good', HTTPStatus.OK)
 
-    async def __on_download_complete(self) -> Response:
+    async def on_download_complete(self) -> Response:
         """
         Обрабатывает POST-запрос при завершении загрузки, отправляет пользователю загруженное видео
 
@@ -165,13 +162,13 @@ class TBotHandler:
                                       reply_parameters=ReplyParameters(message_id, chat_id, True))
         return Response(status=HTTPStatus.OK)
 
-    def __configure_router(self) -> NoReturn:
+    def configure_router(self) -> NoReturn:
         """
         Прописывает все пути для взаимодействия с Flask
         """
-        self.app.add_url_rule('/', view_func=self.__main_page, methods=['GET'])
-        self.app.add_url_rule('/', view_func=self.__t_request_handler, methods=['POST'])
-        self.app.add_url_rule('/api/download/complete', view_func=self.__on_download_complete, methods=['POST'])
+        self.app.add_url_rule('/', view_func=self.main_page, methods=['GET'])
+        self.app.add_url_rule('/', view_func=self.t_request_handler, methods=['POST'])
+        self.app.add_url_rule('/api/download/complete', view_func=self.on_download_complete, methods=['POST'])
 
     def run(self, debug: bool = True) -> NoReturn:
         """

@@ -78,11 +78,11 @@ class Worker:
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=RMQ_HOST, port=RMQ_PORT, heartbeat=0))
         self.channel = self.connection.channel()
         self.channel.queue_declare('task_queue')
-        self.channel.basic_consume('task_queue', self.__process_task, auto_ack=True)
-        self.__configure_bot()
+        self.channel.basic_consume('task_queue', self.process_task, auto_ack=True)
+        self.configure_bot()
 
     @staticmethod
-    def __configure_bot() -> NoReturn:
+    def configure_bot() -> NoReturn:
         """
         Привязка бота к локальному серверу
 
@@ -91,18 +91,18 @@ class Worker:
         apihelper.API_URL = f"http://{TELEGRAM_SERVER_HOST}:{TELEGRAM_SERVER_PORT}" + "/bot{0}/{1}"
         asyncio_helper.API_URL = f"http://{TELEGRAM_SERVER_HOST}:{TELEGRAM_SERVER_PORT}" + "/bot{0}/{1}"
 
-    def __process_task(self, channel: BlockingChannel, method: Basic.Deliver, properties: BasicProperties,
-                       body: bytes) -> NoReturn:
+    def process_task(self, channel: BlockingChannel, method: Basic.Deliver, properties: BasicProperties,
+                     body: bytes) -> NoReturn:
         """
         Обрабатывает добавленные в очередь задачи
         """
         payload = json.loads(body.decode("utf-8"))
         logger.info(f"Receive message: {payload['type']}")
         if payload['type'] == 'download':
-            self.pool.submit(self._download, payload)
+            self.pool.submit(self.download, payload)
 
     @staticmethod
-    def _download(payload: dict) -> NoReturn:
+    def download(payload: dict) -> NoReturn:
         """
         Загружает видео на сервер telegram
 
