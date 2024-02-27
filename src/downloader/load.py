@@ -28,8 +28,6 @@ class Loader:
     """
     Проверяет url на корректность, определяет класс-загрузчик, общается с TBotHandler
 
-    :param video_id: Уникальный идентификатор видеозаписи
-    :type video_id: :class: `int`
     :param netlocs: Список всех поддерживаемых доменов
     :type netlocs: :class: `Dict[List[str]]`
     :param app: Flask-приложение для общения с другими модулями
