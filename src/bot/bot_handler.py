@@ -156,6 +156,9 @@ class TBotHandler:
                 message_text = 'Загрузка невозможна: требуется авторизация'
             elif error_code == HTTPStatus.BAD_REQUEST:
                 message_text = 'Загрузка невозможна'
+            elif error_code == HTTPStatus.REQUEST_ENTITY_TOO_LARGE:
+                message_text = ('Загрузка невозможна: любая доступная конфигурация видео-аудио потоков весит больше '
+                                '500МБ')
             else:
                 message_text = 'Непредвиденная ошибка при попытке загрузки'
             await self.bot.send_message(chat_id, message_text,

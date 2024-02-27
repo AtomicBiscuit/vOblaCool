@@ -62,7 +62,7 @@ class VKLoader:
             logger.info(f'Download start url: {url_raw}')
             with yt_dlp.YoutubeDL(params) as ydlp:
                 ext = ydlp.extract_info(url_raw)['video_ext']
-            file_path = os.getcwd() + f'..\\media\\{name[:-8]}.' + ext
+            file_path = os.getcwd() + f'/../media/{name[:-8]}.' + ext
             logger.info(f'Download complete, file: {file_path}')
         except DownloadError as e:
             logger.warning(f"Cath: {e.__class__.__name__}, {e}, {e.args}")

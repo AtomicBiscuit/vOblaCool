@@ -55,6 +55,11 @@ class Loader:
             'm.youtube.com'
             'youtube.com',
             'youtu.be'
+        ],
+        'vk': [
+            'vk.com',
+            'vk.ru',
+            'm.vk.com',
         ]
     }
 
@@ -107,6 +112,8 @@ class Loader:
         try:
             if host == 'youtube':
                 return extract.video_id(url_raw)
+            elif host == 'vk':
+                return '_'.join(url_raw.split('video')[-1].split('_')[:2]).split('%')[0]
         except RegexMatchError as e:
             return None
 
@@ -125,8 +132,13 @@ class Loader:
         if self.extract_id(url_raw, 'youtube'):
             video_id = self.extract_id(url_raw, 'youtube')
             hosting = 'youtube'
+        elif self.extract_id(url_raw, 'vk'):
+            video_id = self.extract_id(url_raw, 'vk')
+            hosting = 'vk'
+
         if video_id is None:
             return Response(status=HTTPStatus.NOT_FOUND)
+
         self.channel.basic_publish(
             exchange='',
             routing_key='task_queue',
