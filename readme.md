@@ -1,22 +1,44 @@
 ## Запуск
 
-Для запуска необходимо заполнить .env, для получения LOCAL_TELEGRAM_API_ID, LOCAL_TELEGRAM_API_HASH сюда -> https://my.telegram.org/
+Для запуска необходимо заполнить файл [.env](.env.sample).
 
-Также их пока необходимо вручную указать в src/py-bot-server/Dockerfile
+Получить `LOCAL_TELEGRAM_API_ID`, `LOCAL_TELEGRAM_API_HASH` можно на официальном
+сайте [Telegram](https://my.telegram.org/).
+Для получения `TELEGRAM_BOT_API_KEY` следует обратиться к [BotFather](https://t.me/BotFather).
 
-Итак, шаги запуска(Пока нет выделенного сервера с выделенным ip) :
+Настоятельно рекомендуется заполнить все переменные окружения вида `*HOST` названием соответствующего сервиса
+в [docker-compose.yml](docker-compose.yml)
 
-* Зарегистрирорваться на сайте [ngrok](https://ngrok.com/) (для регистрации понадобится VPN, для использования - нет)
-* Скачать и запустить приложение ngrok, в открывшейся командной строке выполнить: ngrok http номер_порта ( номер_порта должен
-  совпадать с TELEGRAM_BOT_HANDLER_PORT, не закрывать до конца работы приложения)
-* Скопировать полученный домен в TELEGRAM_BOT_HANDLER_PROXY
-* Запустить docker-compose (первый раз build может занять > 15 минут)
 
-Настоятельно рекомендуется заполнять все переменный окружения вида *HOST названием соответствующего сервиса в [docker-compose.yml](docker-compose.yml)
+### Запуск на локальной машине
 
-## Примерная архитектура приложения:
+Если у Вас пока нет выделенного сервера с белым ip, то воспользуйтесь следующей инструкцией:
+
+* Зарегистрируйтесь на сайте [ngrok](https://ngrok.com/) (для регистрации понадобится VPN, для использования - нет)
+* Скачайте и запустите приложение ngrok
+* В открывшейся командной строке выполните
+  ```console
+  $ ngrok http PORT
+  ```
+  `PORT` должен совпадать с `TELEGRAM_BOT_HANDLER_PORT`, не закрывайте окно командной строки до конца работы приложения
+* Скопируйте полученный домен в `TELEGRAM_BOT_HANDLER_PROXY`
+* Запустите [Docker](https://docs.docker.com/desktop/?_gl=1*1dcggd0*_ga*NDE4MTkyNTMwLjE2OTc0NDc1MTM.*_ga_XJWPQMJYHQ*MTcwOTA3NDkwNy4xNy4xLjE3MDkwNzQ5MDkuNTguMC4w) и выполнить команду
+  ```console
+  $ docker-compose up
+  ```
+
+### Запуск на сервере
+
+* Укажите в `TELEGRAM_BOT_HANDLER_PROXY` адрес сервера (Убедитесь, что он принимает https запросы)
+* Запустите [Docker](https://docs.docker.com/desktop/?_gl=1*1dcggd0*_ga*NDE4MTkyNTMwLjE2OTc0NDc1MTM.*_ga_XJWPQMJYHQ*MTcwOTA3NDkwNy4xNy4xLjE3MDkwNzQ5MDkuNTguMC4w) и выполните команду
+  ```console
+  $ docker-compose up
+  ```
+  
+## Архитектура приложения:
 
 ![Архитектура](assets/img.png)
 
-## Примерная архитектура базы данных:
+## Архитектура базы данных
+
 Будет добавлена позже
