@@ -26,8 +26,16 @@ handler.setFormatter(logging.Formatter('%(name)s - %(levelname)s - %(message)s')
 
 logger.addHandler(handler)
 
-YOUTUBE_LOADER_HOST = config('YOUTUBE_LOADER_HOST')
-YOUTUBE_LOADER_PORT = config('YOUTUBE_LOADER_PORT')
+loaders = {
+    'youtube': {
+        'host': config('YOUTUBE_LOADER_HOST'),
+        'port': config('YOUTUBE_LOADER_PORT')
+    },
+    'vk': {
+        'host': config('VK_LOADER_HOST'),
+        'port': config('VK_LOADER_PORT')
+    }
+}
 
 RMQ_HOST = config('RMQ_HOST')
 RMQ_PORT = config('RMQ_PORT')
@@ -106,21 +114,19 @@ class Worker:
         """
         Загружает видео на сервер telegram
 
-        :param payload: Словарь с параметрами
+        :param payload: Словарь с параметрами, для начала загрузки требуются поля `url`, `hosting`
         """
         bot, con, ch = get_local()
         url = payload['url']
-        video_id = payload['video_id']
-        chat_id = payload['chat_id']
-        message_id = payload['message_id']
         hosting = payload['hosting']
-        response = None
         file_id = None
         error_code = None
-        if hosting == 'youtube':
-            logger.info(f"Downloading url: {url}")
-            response = requests.post(f'http://{YOUTUBE_LOADER_HOST}:{YOUTUBE_LOADER_PORT}/api/download',
-                                     json={'url': url}, timeout=1000)
+        logger.info(f"Downloading start, url: {url}")
+        response = requests.post(
+            f'http://{loaders[hosting]["host"]}:{loaders[hosting]["port"]}/api/download',
+            json={'url': url},
+            timeout=1000
+        )
         if response.status_code == HTTPStatus.OK:
             path = response.text
             logger.info(f"Load complete, file_path: {path}")
@@ -129,22 +135,14 @@ class Worker:
                     file_id = bot.send_video(DOWNLOAD_CHAT_ID, f, timeout=1000).video.file_id
             except Exception as e:
                 logger.error(f"Fatal error: {e.__class__.__name__}, {e}, {e.args}")
+                error_code = HTTPStatus.INTERNAL_SERVER_ERROR
         else:
             logger.warning(f"Load fail with status code: {response.status_code}")
             error_code = response.status_code
         ch.basic_publish(
             exchange='',
             routing_key='answer_queue',
-            body=json.dumps({
-                'type': 'download',
-                'file_id': file_id,
-                'video_id': video_id,
-                'chat_id': chat_id,
-                'message_id': message_id,
-                'hosting': hosting,
-                'error_code': error_code
-            })
-        )
+            body=json.dumps(payload | {'file_id': file_id, 'error_code': error_code}))
         logger.info(f"Reply-message send")
 
     def run(self) -> NoReturn:
