@@ -13,14 +13,14 @@ class YLoaderPrototype:
         self.app = flask.Flask(__name__)
         self.host = config('YOUTUBE_LOADER_HOST')
         self.port = config('YOUTUBE_LOADER_PORT')
-        self.__configure_router()
+        self.configure_router()
 
     @staticmethod
-    async def __main_page() -> Response:
+    async def main_page() -> Response:
         return Response(f'Ok', HTTPStatus.OK)
 
     @staticmethod
-    async def __download() -> Response:
+    async def download() -> Response:
         payload = request.json
         url_raw = payload['url']
         code = HTTPStatus.OK
@@ -34,9 +34,9 @@ class YLoaderPrototype:
             code = HTTPStatus.BAD_REQUEST
         return Response(file_path, status=code)
 
-    def __configure_router(self):
-        self.app.add_url_rule('/', view_func=self.__main_page, methods=['GET'])
-        self.app.add_url_rule('/api/download', view_func=self.__download, methods=['POST'])
+    def configure_router(self):
+        self.app.add_url_rule('/', view_func=self.main_page, methods=['GET'])
+        self.app.add_url_rule('/api/download', view_func=self.download, methods=['POST'])
 
     def run(self, debug: bool = True) -> None:
         self.app.run(debug=debug, host=self.host, port=self.port, use_reloader=False)

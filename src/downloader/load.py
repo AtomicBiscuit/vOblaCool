@@ -72,12 +72,12 @@ class Loader:
         self.RPC_channel = self.RPC_connection.channel()
         self.channel.queue_declare('task_queue')
         self.RPC_channel.queue_declare('answer_queue')
-        self.RPC_channel.basic_consume('answer_queue', self.__process_answer, auto_ack=True)
-        self.__configure_router()
+        self.RPC_channel.basic_consume('answer_queue', self.process_answer, auto_ack=True)
+        self.configure_router()
 
     @staticmethod
-    def __process_answer(channel: BlockingChannel, method: Basic.Deliver, properties: BasicProperties,
-                         body: bytes) -> NoReturn:
+    def process_answer(channel: BlockingChannel, method: Basic.Deliver, properties: BasicProperties,
+                       body: bytes) -> NoReturn:
         """
         Обработка полученных от worker-а ответов
         """
@@ -87,7 +87,7 @@ class Loader:
             req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete', json=payload)
 
     @staticmethod
-    async def __main_page() -> Response:
+    async def main_page() -> Response:
         """
         Обрабатывает GET-запросы на главную страницу
 
@@ -115,7 +115,7 @@ class Loader:
         except RegexMatchError as e:
             return None
 
-    async def __download_start(self) -> Response:
+    async def download_start(self) -> Response:
         """
         Обрабатывает POST-запрос на начало загрузки, определяет видео-хостинг, добавляет задачу в очередь
 
@@ -151,12 +151,12 @@ class Loader:
         )
         return Response(status=HTTPStatus.OK)
 
-    def __configure_router(self) -> NoReturn:
+    def configure_router(self) -> NoReturn:
         """
         Прописывает все пути для взаимодействия с Flask
         """
-        self.app.add_url_rule('/', view_func=self.__main_page, methods=['GET'])
-        self.app.add_url_rule('/api/download/start', view_func=self.__download_start, methods=['POST'])
+        self.app.add_url_rule('/', view_func=self.main_page, methods=['GET'])
+        self.app.add_url_rule('/api/download/start', view_func=self.download_start, methods=['POST'])
 
     def run(self, debug: bool = True) -> NoReturn:
         """
