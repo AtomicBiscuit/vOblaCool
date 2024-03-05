@@ -17,13 +17,15 @@
 
 * Зарегистрируйтесь на сайте [ngrok](https://ngrok.com/) (для регистрации понадобится VPN, для использования - нет)
 * Скачайте и запустите приложение ngrok
-* В открывшейся командной строке выполните
+* В открывшейся командной строке выполните команду
+
   ```console
   ngrok http PORT
   ```
   `PORT` должен совпадать с `TELEGRAM_BOT_HANDLER_PORT`, не закрывайте окно командной строки до конца работы приложения
 * Скопируйте полученный домен в `TELEGRAM_BOT_HANDLER_PROXY`
 * Запустите [Docker](https://docs.docker.com/desktop/?_gl=1*1dcggd0*_ga*NDE4MTkyNTMwLjE2OTc0NDc1MTM.*_ga_XJWPQMJYHQ*MTcwOTA3NDkwNy4xNy4xLjE3MDkwNzQ5MDkuNTguMC4w) и выполнить команду
+
   ```console
   docker-compose up
   ```
@@ -34,6 +36,7 @@
 > Сервер должен принимать **https** запросы
 * Укажите в `TELEGRAM_BOT_HANDLER_PROXY` адрес сервера
 * Запустите [Docker](https://docs.docker.com/desktop/?_gl=1*1dcggd0*_ga*NDE4MTkyNTMwLjE2OTc0NDc1MTM.*_ga_XJWPQMJYHQ*MTcwOTA3NDkwNy4xNy4xLjE3MDkwNzQ5MDkuNTguMC4w) и выполните команду
+
   ```console
   docker-compose up
   ```

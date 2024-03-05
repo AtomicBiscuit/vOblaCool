@@ -28,8 +28,6 @@ class Loader:
     """
     Проверяет url на корректность, определяет класс-загрузчик, общается с TBotHandler
 
-    :param video_id: Уникальный идентификатор видеозаписи
-    :type video_id: :class: `int`
     :param netlocs: Список всех поддерживаемых доменов
     :type netlocs: :class: `Dict[List[str]]`
     :param app: Flask-приложение для общения с другими модулями
@@ -55,6 +53,11 @@ class Loader:
             'm.youtube.com'
             'youtube.com',
             'youtu.be'
+        ],
+        'vk': [
+            'vk.com',
+            'vk.ru',
+            'm.vk.com',
         ]
     }
 
@@ -69,12 +72,12 @@ class Loader:
         self.RPC_channel = self.RPC_connection.channel()
         self.channel.queue_declare('task_queue')
         self.RPC_channel.queue_declare('answer_queue')
-        self.RPC_channel.basic_consume('answer_queue', self.__process_answer, auto_ack=True)
-        self.__configure_router()
+        self.RPC_channel.basic_consume('answer_queue', self.process_answer, auto_ack=True)
+        self.configure_router()
 
     @staticmethod
-    def __process_answer(channel: BlockingChannel, method: Basic.Deliver, properties: BasicProperties,
-                         body: bytes) -> NoReturn:
+    def process_answer(channel: BlockingChannel, method: Basic.Deliver, properties: BasicProperties,
+                       body: bytes) -> NoReturn:
         """
         Обработка полученных от worker-а ответов
         """
@@ -84,7 +87,7 @@ class Loader:
             req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete', json=payload)
 
     @staticmethod
-    async def __main_page() -> Response:
+    async def main_page() -> Response:
         """
         Обрабатывает GET-запросы на главную страницу
 
@@ -107,10 +110,12 @@ class Loader:
         try:
             if host == 'youtube':
                 return extract.video_id(url_raw)
+            elif host == 'vk':
+                return '_'.join(url_raw.split('video')[-1].split('_')[:2]).split('%')[0]
         except RegexMatchError as e:
             return None
 
-    async def __download_start(self) -> Response:
+    async def download_start(self) -> Response:
         """
         Обрабатывает POST-запрос на начало загрузки, определяет видео-хостинг, добавляет задачу в очередь
 
@@ -125,8 +130,13 @@ class Loader:
         if self.extract_id(url_raw, 'youtube'):
             video_id = self.extract_id(url_raw, 'youtube')
             hosting = 'youtube'
+        elif self.extract_id(url_raw, 'vk'):
+            video_id = self.extract_id(url_raw, 'vk')
+            hosting = 'vk'
+
         if video_id is None:
             return Response(status=HTTPStatus.NOT_FOUND)
+
         self.channel.basic_publish(
             exchange='',
             routing_key='task_queue',
@@ -141,12 +151,12 @@ class Loader:
         )
         return Response(status=HTTPStatus.OK)
 
-    def __configure_router(self) -> NoReturn:
+    def configure_router(self) -> NoReturn:
         """
         Прописывает все пути для взаимодействия с Flask
         """
-        self.app.add_url_rule('/', view_func=self.__main_page, methods=['GET'])
-        self.app.add_url_rule('/api/download/start', view_func=self.__download_start, methods=['POST'])
+        self.app.add_url_rule('/', view_func=self.main_page, methods=['GET'])
+        self.app.add_url_rule('/api/download/start', view_func=self.download_start, methods=['POST'])
 
     def run(self, debug: bool = True) -> NoReturn:
         """

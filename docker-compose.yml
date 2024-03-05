@@ -56,6 +56,17 @@ services:
     volumes:
       - media-storage:/media
 
+  vk_loader:
+    build:
+      context: ./src/vk
+      dockerfile: ./Dockerfile
+    env_file:
+      - ./.env
+    ports:
+      - '${VK_LOADER_PORT}:${VK_LOADER_PORT}'
+    volumes:
+      - media-storage:/media
+
   broker:
     image: 'rabbitmq'
     ports:

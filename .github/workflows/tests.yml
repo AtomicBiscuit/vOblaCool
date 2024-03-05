@@ -1,0 +1,59 @@
+name: Run project tests
+
+on:
+  push:
+    branches: [ "main", "develop"]
+  pull_request:
+    branches: [ "main", "develop"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ 3.10.13 ]
+    env:
+      TELEGRAM_BOT_API_KEY: example_key
+      TELEGRAM_BOT_WEBHOOK_TOKEN: random
+      TELEGRAM_BOT_HANDLER_PORT: 12379
+      TELEGRAM_BOT_HANDLER_HOST: bot_handler
+      TELEGRAM_BOT_HANDLER_PROXY: memes.com
+
+      DOWNLOADER_BOT_API_KEY: example_key
+      DOWNLOADER_PORT: 7418
+      DOWNLOADER_HOST: downloader
+
+      LOCAL_TELEGRAM_API_SERVER_HOST: bot_server
+      LOCAL_TELEGRAM_API_SERVER_PORT: 8081
+
+      LOCAL_TELEGRAM_API_ID: 777
+      LOCAL_TELEGRAM_API_HASH: hash
+
+      RMQ_HOST: broker
+      RMQ_PORT: 5672
+
+      DOWNLOAD_CHAT_ID: -4111
+
+      YOUTUBE_LOADER_HOST: y_loader
+      YOUTUBE_LOADER_PORT: 8527
+
+      VK_LOADER_HOST: vk_loader
+      VK_LOADER_PORT: 7412
+
+    steps:
+      - name: Checkout the Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Dependencies
+        run: |
+            python -m pip install --upgrade pip
+            pip install -r ./tests/requirements.txt
+            pip install pytest
+
+      - name: Run test cases
+        run: python -m pytest ./tests/test.py
