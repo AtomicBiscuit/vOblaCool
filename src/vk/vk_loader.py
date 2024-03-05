@@ -26,6 +26,7 @@ logger.addHandler(handler)
 
 sep = os.sep
 
+
 class VKLoader:
     """
     Класс для загрузки видео и получения информация о плейлистах Вконтакте
@@ -133,5 +134,4 @@ class VKLoader:
 
 if __name__ == '__main__':
     app = VKLoader()
-    app.host = 'localhost'
     app.run()
