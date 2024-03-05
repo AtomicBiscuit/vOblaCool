@@ -14,7 +14,6 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx_rtd_theme',
     'sphinx_autodoc_typehints',
-    'docxbuilder'
 ]
 
 templates_path = ['_templates']
@@ -35,7 +34,7 @@ intersphinx_mapping = {
         'https://requests.readthedocs.io/en/latest/',
         None
     ),
-    'putube': ('https://pytube.io/en/latest/', None),
+    'pytube': ('https://pytube.io/en/latest/', None),
     'pika': ('https://pika.readthedocs.io/en/stable/', None),
     'flask': ('https://flask.palletsprojects.com/en/latest/', None)
 }
@@ -44,13 +43,3 @@ set_type_checking_flag = True
 typehints_fully_qualified = True
 always_document_param_types = True
 typehints_document_rtype = True
-
-docx_documents = [
-('index', 'docxbuilder.docx', {
-     'title': project,
-     'creator': author,
-     'subject': 'Telegram bot',
- }, True),
-]
-
-docx_pagebreak_before_section = 1

@@ -78,7 +78,7 @@ class Worker:
     :param connection: Объект соединения с RabbitMQ
     :type connection: :class: `pika.BlockingConnection`
     :param channel: Канал для общения с RabbitMQ
-    :type channel: :class: `pika.BlockingChannel`
+    :type channel: :class: `pika.adapters.blocking_connection.BlockingChannel`
     """
 
     def __init__(self):
