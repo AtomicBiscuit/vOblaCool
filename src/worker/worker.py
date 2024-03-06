@@ -73,12 +73,9 @@ class Worker:
     """
     Обрабатывает запросы на добавление видеозаписей и запускает параллельные процессы загрузки
 
-    :param pool: Группа потоков для выполнения задач
-    :type pool: :class: `concurrent.futures.thread.ThreadPoolExecutor`
-    :param connection: Объект соединения с RabbitMQ
-    :type connection: :class: `pika.BlockingConnection`
-    :param channel: Канал для общения с RabbitMQ
-    :type channel: :class: `pika.adapters.blocking_connection.BlockingChannel`
+    :ivar `concurrent.futures.ThreadPoolExecutor` pool: Группа потоков для выполнения задач
+    :ivar `pika.adapters.blocking_connection.BlockingConnection` connection: Объект соединения с RabbitMQ
+    :ivar `pika.adapters.blocking_connection.BlockingChannel` channel: Канал для общения с RabbitMQ
     """
 
     def __init__(self):

@@ -31,3 +31,19 @@ Youtube
 
 .. automodule:: src.youtube.youtube_loader
    :members:
+
+
+***********
+VK
+***********
+
+.. automodule:: src.vk.vk_loader
+   :members:
+
+
+***********
+Tests
+***********
+
+.. automodule:: tests.test
+   :members:

@@ -28,23 +28,15 @@ class Loader:
     """
     Проверяет url на корректность, определяет класс-загрузчик, общается с TBotHandler
 
-    :param netlocs: Список всех поддерживаемых доменов
-    :type netlocs: :class: `Dict[List[str]]`
-    :param app: Flask-приложение для общения с другими модулями
-    :type app: :class: `flask.app.Flask`
-    :param host: Хост для запуска
-    :type host: :class: `str`
-    :param port: Порт для запуска
-    :type port: :class: `int`
-    :param connection: Объект соединения с RabbitMQ
-    :type connection: :class: `pika.BlockingConnection`
-    :param channel: Канал для общения с RabbitMQ
-    :type channel: :class: `pika.BlockingChannel`
-    :param RPC_connection: Объект соединения с RabbitMQ для получения ответных сообщений
-    :param RPC_connection: (non-thread-safe) Использовать только внутри одного потока
-    :type RPC_connection: :class: `pika.BlockingConnection`
-    :param RPC_channel: Канал для общения с RabbitMQ
-    :type RPC_channel: :class: `pika.BlockingChannel`
+    :cvar `dict[list[str]]` netlocs: Список всех поддерживаемых доменов
+    :ivar `flask.app.Flask` app: Flask-приложение для общения с другими модулями
+    :ivar `str` host: Хост для запуска
+    :ivar `int` port: Порт для запуска
+    :ivar `pika.adapters.blocking_connection.BlockingConnection` connection: Объект соединения с RabbitMQ
+    :ivar `pika.adapters.blocking_connection.BlockingChannel` channel: Канал для общения с RabbitMQ
+    :ivar `pika.adapters.blocking_connection.BlockingConnection` RPC_connection: Объект соединения с RabbitMQ для\
+    получения ответных сообщений. (Non-thread-safe) Использовать только внутри одного потока
+    :ivar `pika.adapters.blocking_connection.BlockingChannel` RPC_channel: Канал для общения с RabbitMQ
     """
     netlocs = {
         'youtube': [

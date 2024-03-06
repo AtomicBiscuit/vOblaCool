@@ -34,8 +34,7 @@ class DownloadVideoState(StatesGroup):
     """
     Состояния нужные для скачивания видео
 
-    :param link: Получение ссылки
-    :type link: :class: `telebot.asyncio_handler_backends.State`
+    :cvar `telebot.asyncio_handler_backends.State` link: Получение ссылки
     """
     link = State()
 
@@ -45,18 +44,14 @@ class TBotHandler:
     Класс-оболочка над Телеграм ботом, реализующая API для взаимодействия.
     Определяет поведение бота, отправляет запросы на загрузку и обрабатывает ответы на них.
 
-    :param bot: Экземпляр бота
-    :type bot: :class: `telebot.async_telebot.AsyncTeleBot`
-    :param app: Flask-приложения для общения с остальными модулями
-    :type app: :class: `flask.app.Flask`
-    :param host: Хост для запуска
-    :type host: :class: `str`
-    :param port: Порт для запуска
-    :type port: :class: `int`
+    :ivar `telebot.async_telebot.AsyncTeleBot` bot: Экземпляр бота
+    :ivar `flask.app.Flask` app: Flask-приложение для общения с остальными модулями
+    :ivar `str` host: Хост для запуска
+    :ivar `int` port: Порт для запуска
     """
 
     def __init__(self):
-        self.bot = AsyncTeleBot(API_KEY, state_storage=StateMemoryStorage())
+        self.bot: AsyncTeleBot = AsyncTeleBot(API_KEY, state_storage=StateMemoryStorage())
         self.app = flask.Flask(__name__)
         self.host = config('TELEGRAM_BOT_HANDLER_HOST')
         self.port = int(config('TELEGRAM_BOT_HANDLER_PORT'))

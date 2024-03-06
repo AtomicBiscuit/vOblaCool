@@ -31,18 +31,15 @@ class VKLoader:
     """
     Класс для загрузки видео и получения информация о плейлистах Вконтакте
 
-    :param app: Flask-приложение для общения с другими модулями
-    :type app: :class: `flask.app.Flask`
-    :param host: Хост для запуска
-    :type host: :class: `str`
-    :param port: Порт для запуска
-    :type port: :class: `int`
+    :ivar `flask.app.Flask` app: Flask-приложение для общения с другими модулями
+    :ivar `str` host: Хост для запуска
+    :ivar `int` port: Порт для запуска
     """
 
     def __init__(self):
         self.app = flask.Flask(__name__)
         self.host = config('VK_LOADER_HOST')
-        self.port = config('VK_LOADER_PORT')
+        self.port = int(config('VK_LOADER_PORT'))
         self.configure_router()
 
     @staticmethod

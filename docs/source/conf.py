@@ -26,17 +26,11 @@ html_static_path = ['_static']
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org', None),
-    'telebot': (
-        'https://pytba.readthedocs.io/en/latest/',
-        None
-    ),
-    'requests': (
-        'https://requests.readthedocs.io/en/latest/',
-        None
-    ),
+    'telebot': ('https://pytba.readthedocs.io/en/latest/', None),
+    'requests': ('https://requests.readthedocs.io/en/latest/', None),
     'pytube': ('https://pytube.io/en/latest/', None),
     'pika': ('https://pika.readthedocs.io/en/stable/', None),
-    'flask': ('https://flask.palletsprojects.com/en/latest/', None)
+    'flask': ('https://flask.palletsprojects.com/en/latest/', None),
 }
 
 set_type_checking_flag = True
