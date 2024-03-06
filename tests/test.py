@@ -1,39 +1,57 @@
 import os
+from typing import NoReturn, Callable
 from unittest import TestCase
 from unittest.mock import patch, Mock, MagicMock
 
-from src.worker.worker import Worker, loaders
+from src.worker.worker import Worker, videohostings
 
 sep = os.sep
 
 
 def mock_to_dict(mock: MagicMock):
+    """
+    Преобразует Mock объект в словарь
+
+    :param mock:
+    :return: Полученный словарь
+    """
     return mock | {}
 
 
 class BaseWorker(TestCase):
+    """
+    Базовый класс для тестирования модуля Worker
+
+    :cvar `str` hosting: Целевой видеохостинг для тестирования
+    :ivar `src.worker.worker.Worker` client: Класс для тестирования
+    """
     hosting = None
+    client = Worker
 
-    def setUp(self):
-        self.client = Worker
+    def base_download(self, local_mock: MagicMock, req_post_mock: MagicMock, url: str, error: bool, body: dict,
+                      pre_logic: Callable = None, post_logic: Callable = None) -> NoReturn:
+        """
+        Имитирует отправку запроса на загрузку видео
 
-    @staticmethod
-    def get_locals():
-        obj = [MagicMock(), MagicMock(), MagicMock()]
-        return obj
-
-    def base_download(self, local_mock, req_post_mock, url, error, body, pre_logic=None, post_logic=None):
+        :param local_mock: Mock для имитации получения локальных значений потока
+        :param req_post_mock: Mock для имитации отправки post запросов
+        :param url: Ссылка на загружаемое видео
+        :param error: True если загрузка видео завершилось ошибкой
+        :param body: Ожидаемые ответные данные
+        :param pre_logic: Функция, вызываемая до отправки запроса
+        :param post_logic: Функция, вызываемая после отправки запроса
+        """
         payload = {
             'url': url,
             'hosting': self.hosting
         }
-        mocks = self.get_locals()
+        mocks = MagicMock(), MagicMock(), MagicMock()
         local_mock.return_value = mocks
         if pre_logic:
             pre_logic(mocks)
         self.client.download(payload)
         req_post_mock.assert_called_once_with(
-            f"http://{loaders[self.hosting]['host']}:{loaders[self.hosting]['port']}/api/download",
+            f"http://{videohostings[self.hosting]['host']}:{videohostings[self.hosting]['port']}/api/download",
             json={'url': payload['url']},
             timeout=1000
         )
@@ -51,12 +69,24 @@ class BaseWorker(TestCase):
 
 
 class WorkerYoutubeTestCase(BaseWorker):
+    """
+    Класс для тестирования функционала Worker для взаимодействия с youtube
+    :
+    """
     hosting = 'youtube'
 
     @patch('json.dumps', side_effect=mock_to_dict)
     @patch('src.worker.worker.get_local')
-    @patch('requests.post', return_value=Mock(status_code=200, text=os.path.dirname(os.path.abspath(__file__)) + f'{sep}data{sep}video.mp4'))
+    @patch('requests.post', return_value=Mock(status_code=200, text=os.path.dirname(
+        os.path.abspath(__file__)) + f'{sep}data{sep}video.mp4'))
     def test_youtube_download(self, req_post_mock: Mock, local_mock: Mock, json_dumps_mock: Mock):
+        """
+        Тестирование отправки корректно загруженного видео `data/video.mp4`
+
+        :param local_mock: Mock для имитации получения локальных значений потока
+        :param req_post_mock: Mock для имитации отправки post запросов
+        :param json_dumps_mock: Mock для имитации сериализаци данных
+        """
         def _pre(mocks):
             mocks[0].send_video.return_value.video.file_id = '7986223'
 
@@ -71,8 +101,16 @@ class WorkerYoutubeTestCase(BaseWorker):
 
     @patch('json.dumps', side_effect=mock_to_dict)
     @patch('src.worker.worker.get_local')
-    @patch('requests.post', return_value=Mock(status_code=200, text=os.path.dirname(os.path.abspath(__file__)) + f'{sep}data{sep}no_video.mp4'))
+    @patch('requests.post', return_value=Mock(status_code=200, text=os.path.dirname(
+        os.path.abspath(__file__)) + f'{sep}data{sep}no_video.mp4'))
     def test_youtube_incorrect_download(self, req_post_mock: Mock, local_mock: Mock, json_dumps_mock: Mock):
+        """
+        Тестирование случая некорректной загрузки видео `data/no_video.mp4`
+
+        :param local_mock: Mock для имитации получения локальных значений потока
+        :param req_post_mock: Mock для имитации отправки post запросов
+        :param json_dumps_mock: Mock для имитации сериализаци данных
+        """
         self.base_download(
             local_mock,
             req_post_mock,
@@ -85,6 +123,13 @@ class WorkerYoutubeTestCase(BaseWorker):
     @patch('src.worker.worker.get_local')
     @patch('requests.post', return_value=Mock(status_code=413))
     def test_youtube_download_error(self, req_post_mock: Mock, local_mock: Mock, json_dumps_mock: Mock):
+        """
+        Тестирование загрузки, окончившейся ошибкой
+
+        :param local_mock: Mock для имитации получения локальных значений потока
+        :param req_post_mock: Mock для имитации отправки post запросов
+        :param json_dumps_mock: Mock для имитации сериализаци данных
+        """
         self.base_download(
             local_mock,
             req_post_mock,
@@ -95,12 +140,23 @@ class WorkerYoutubeTestCase(BaseWorker):
 
 
 class WorkerVkTestCase(BaseWorker):
+    """
+   Класс для тестирования функционала Worker для взаимодействия с vk
+   """
     hosting = 'vk'
 
     @patch('json.dumps', side_effect=mock_to_dict)
     @patch('src.worker.worker.get_local')
-    @patch('requests.post', return_value=Mock(status_code=200, text=os.path.dirname(os.path.abspath(__file__)) + f'{sep}data{sep}video.mp4'))
+    @patch('requests.post', return_value=Mock(status_code=200, text=os.path.dirname(
+        os.path.abspath(__file__)) + f'{sep}data{sep}video.mp4'))
     def test_vk_download(self, req_post_mock: Mock, local_mock: Mock, json_dumps_mock: Mock):
+        """
+        Тестирование отправки корректно загруженного видео `data/video.mp4`
+
+        :param local_mock: Mock для имитации получения локальных значений потока
+        :param req_post_mock: Mock для имитации отправки post запросов
+        :param json_dumps_mock: Mock для имитации сериализаци данных
+        """
         def _pre(mocks):
             mocks[0].send_video.return_value.video.file_id = '704977679_456239136'
 
@@ -115,8 +171,16 @@ class WorkerVkTestCase(BaseWorker):
 
     @patch('json.dumps', side_effect=mock_to_dict)
     @patch('src.worker.worker.get_local')
-    @patch('requests.post', return_value=Mock(status_code=200, text=os.path.dirname(os.path.abspath(__file__)) + f'{sep}data{sep}no_video.mp4'))
+    @patch('requests.post', return_value=Mock(status_code=200, text=os.path.dirname(
+        os.path.abspath(__file__)) + f'{sep}data{sep}no_video.mp4'))
     def test_vk_incorrect_download(self, req_post_mock: Mock, local_mock: Mock, json_dumps_mock: Mock):
+        """
+        Тестирование случая некорректной загрузки видео `data/no_video.mp4`
+
+        :param local_mock: Mock для имитации получения локальных значений потока
+        :param req_post_mock: Mock для имитации отправки post запросов
+        :param json_dumps_mock: Mock для имитации сериализаци данных
+        """
         self.base_download(
             local_mock,
             req_post_mock,
@@ -129,6 +193,13 @@ class WorkerVkTestCase(BaseWorker):
     @patch('src.worker.worker.get_local')
     @patch('requests.post', return_value=Mock(status_code=400))
     def test_youtube_download_error(self, req_post_mock: Mock, local_mock: Mock, json_dumps_mock: Mock):
+        """
+        Тестирование загрузки, окончившейся ошибкой
+
+        :param local_mock: Mock для имитации получения локальных значений потока
+        :param req_post_mock: Mock для имитации отправки post запросов
+        :param json_dumps_mock: Mock для имитации сериализаци данных
+        """
         self.base_download(
             local_mock,
             req_post_mock,

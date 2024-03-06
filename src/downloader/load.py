@@ -1,6 +1,7 @@
 """
 Управление состоянием загружаемых видеозаписей
 """
+import asyncio
 import json
 import threading
 from http import HTTPStatus
@@ -16,6 +17,7 @@ from pika.adapters.blocking_connection import BlockingChannel
 from pika.spec import BasicProperties, Basic
 from pytube import extract
 from pytube.exceptions import RegexMatchError
+from telebot import asyncio_helper
 
 TBOT_HOST = config('TELEGRAM_BOT_HANDLER_HOST')
 TBOT_PORT = config('TELEGRAM_BOT_HANDLER_PORT')
@@ -67,16 +69,41 @@ class Loader:
         self.RPC_channel.basic_consume('answer_queue', self.process_answer, auto_ack=True)
         self.configure_router()
 
-    @staticmethod
-    def process_answer(channel: BlockingChannel, method: Basic.Deliver, properties: BasicProperties,
+    def process_answer(self, channel: BlockingChannel, method: Basic.Deliver, properties: BasicProperties,
                        body: bytes) -> NoReturn:
         """
         Обработка полученных от worker-а ответов
         """
-        payload = json.loads(body.decode("utf-8"))
+        payload: dict = json.loads(body.decode("utf-8"))
         if payload['type'] == 'download':
             # TODO: Сохранять file_id в БД
-            req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete', json=payload)
+            session = asyncio.run(asyncio_helper.session_manager.get_session())
+            if payload.get('payload_id', None) is None:
+                async with session.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete', json=payload):
+                    pass
+                # req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete', json=payload)
+            else:
+                chats = []
+                for chat in chats:
+                    async with session.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete',
+                                            json=payload | {'chat_id': chat}):
+                        pass
+                    # req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete',
+                    #         json=payload | {})
+        elif payload['type'] == 'playlist':
+            # TODO: Сохранять все видео в БД
+            current_ids = payload['video_ids']
+            new_ids = [_id for _id in payload['video_ids'] if _id in current_ids]
+            if payload['upload']:
+                for _id in new_ids:
+                    self.channel.basic_publish(
+                        exchange='',
+                        routing_key='task_queue',
+                        body=json.dumps(payload | {
+                            'type': 'download',
+                            'video_id': _id,
+                        }),
+                    )
 
     @staticmethod
     async def main_page() -> Response:
@@ -88,9 +115,9 @@ class Loader:
         return Response(f'Ok', HTTPStatus.OK)
 
     @staticmethod
-    def extract_id(url_raw: str, host: str) -> Optional[str]:
+    def extract_video_id(url_raw: str, host: str) -> Optional[str]:
         """
-        Проверяет ссылку на принадлежность домену
+        Проверяет ссылку на принадлежность домену и возвращает `video_id`
 
         :param host: Видео-хостинг
         :param url_raw: url для проверки
@@ -103,8 +130,30 @@ class Loader:
             if host == 'youtube':
                 return extract.video_id(url_raw)
             elif host == 'vk':
-                return '_'.join(url_raw.split('video')[-1].split('_')[:2]).split('%')[0]
+                return '_'.join(url_raw.split('video')[-1].split('_')[:2]).split('%?')[0]
         except RegexMatchError as e:
+            return None
+
+    @staticmethod
+    def extract_playlist_id(url_raw: str, host: str) -> Optional[str]:
+        """
+        Проверяет ссылку на принадлежность домену и возвращает `playlist_id`
+
+        :param host: Видео-хостинг
+        :param url_raw: url для проверки
+        :return: video_id если ссылка корректна, иначе None
+        """
+        url = urlparse(url_raw)
+        if url.netloc not in Loader.netlocs[host]:
+            return None
+        try:
+            if host == 'youtube':
+                return extract.playlist_id(url_raw)
+            elif host == 'vk':
+                return '_'.join(url_raw.split('playlist/')[1].split('_')[:2]).split('%?')[0]
+        except RegexMatchError as e:
+            return None
+        except IndexError as e:
             return None
 
     async def download_start(self) -> Response:
@@ -115,15 +164,13 @@ class Loader:
         """
         payload = request.json
         url_raw = payload['url']
-        chat_id = payload['chat_id']
-        message_id = payload['message_id']
         video_id = None
         hosting = None
-        if self.extract_id(url_raw, 'youtube'):
-            video_id = self.extract_id(url_raw, 'youtube')
+        if self.extract_video_id(url_raw, 'youtube'):
+            video_id = self.extract_video_id(url_raw, 'youtube')
             hosting = 'youtube'
-        elif self.extract_id(url_raw, 'vk'):
-            video_id = self.extract_id(url_raw, 'vk')
+        elif self.extract_video_id(url_raw, 'vk'):
+            video_id = self.extract_video_id(url_raw, 'vk')
             hosting = 'vk'
 
         if video_id is None:
@@ -132,16 +179,33 @@ class Loader:
         self.channel.basic_publish(
             exchange='',
             routing_key='task_queue',
-            body=json.dumps({
+            body=json.dumps(payload | {
                 'type': 'download',
-                'url': url_raw,
                 'video_id': video_id,
-                'chat_id': chat_id,
-                'message_id': message_id,
                 'hosting': hosting
             }),
         )
         return Response(status=HTTPStatus.OK)
+
+    async def update_playlist(self, playlist_id: str, hosting: str, upload: bool, **kwargs) -> NoReturn:
+        """
+        Обновляет данные о плейлисте в базе данных
+
+        :param playlist_id: Идентификатор плейлиста
+        :param hosting: Имя хостинга
+        :param upload: Если установленно True, то загружает на сервер новые видео
+        """
+        self.channel.basic_publish(
+            exchange='',
+            routing_key='task_queue',
+            body=json.dumps({
+                'type': 'playlist',
+                'playlist_id': playlist_id,
+                'hosting': hosting,
+                'upload': upload,
+                **kwargs
+            }),
+        )
 
     def configure_router(self) -> NoReturn:
         """

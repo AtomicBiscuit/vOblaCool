@@ -26,14 +26,18 @@ handler.setFormatter(logging.Formatter('%(name)s - %(levelname)s - %(message)s')
 
 logger.addHandler(handler)
 
-loaders = {
+videohostings = {
     'youtube': {
         'host': config('YOUTUBE_LOADER_HOST'),
-        'port': config('YOUTUBE_LOADER_PORT')
+        'port': config('YOUTUBE_LOADER_PORT'),
+        'playlist': 'https://www.youtube.com/playlist?list={0}',
+        'video': 'https://www.youtube.com/watch?v={0}',
     },
     'vk': {
         'host': config('VK_LOADER_HOST'),
-        'port': config('VK_LOADER_PORT')
+        'port': config('VK_LOADER_PORT'),
+        'playlist': 'https://vk.com/video/playlist/{0}',
+        'video': 'https://vk.com/video/{0}',
     }
 }
 
@@ -105,6 +109,8 @@ class Worker:
         logger.info(f"Receive message: {payload['type']}")
         if payload['type'] == 'download':
             self.pool.submit(self.download, payload)
+        elif payload['type'] == 'playlist':
+            self.pool.submit(self.playlist, payload)
 
     @staticmethod
     def download(payload: dict) -> NoReturn:
@@ -114,13 +120,13 @@ class Worker:
         :param payload: Словарь с параметрами, для начала загрузки требуются поля `url`, `hosting`
         """
         bot, con, ch = get_local()
-        url = payload['url']
         hosting = payload['hosting']
+        url = videohostings[hosting]['video'].format(payload['video_id'])
         file_id = None
         error_code = None
         logger.info(f"Downloading start, url: {url}")
         response = requests.post(
-            f'http://{loaders[hosting]["host"]}:{loaders[hosting]["port"]}/api/download',
+            f'http://{videohostings[hosting]["host"]}:{videohostings[hosting]["port"]}/api/download',
             json={'url': url},
             timeout=1000
         )
@@ -139,7 +145,39 @@ class Worker:
         ch.basic_publish(
             exchange='',
             routing_key='answer_queue',
-            body=json.dumps(payload | {'file_id': file_id, 'error_code': error_code}))
+            body=json.dumps(payload | {'file_id': file_id, 'error_code': error_code, 'video_url': url}))
+        logger.info(f"Reply-message send")
+
+    @staticmethod
+    def playlist(payload: dict) -> NoReturn:
+        """
+        Получает информацию о всех видеозаписях в плейлисте
+
+        :param payload: Словарь с параметрами, для начала загрузки требуются поля `url`, `hosting`
+        """
+        bot, con, ch = get_local()
+        playlist_id = payload['playlist_id']
+        hosting = payload['hosting']
+        url = videohostings[hosting]['playlist'].format(playlist_id)
+        video_ids = None
+        error_code = None
+
+        logger.info(f"Playlist get start, url: {url}")
+        response = requests.post(
+            f'http://{videohostings[hosting]["host"]}:{videohostings[hosting]["port"]}/api/download',
+            json={'url': url},
+            timeout=30
+        )
+        if response.status_code == HTTPStatus.OK:
+            video_ids = json.loads(response.text)['video_ids']
+            logger.info(f"Playlist get complete, videos: {video_ids}")
+        else:
+            logger.warning(f"Playlist get fail with status code: {response.status_code}")
+            error_code = response.status_code
+        ch.basic_publish(
+            exchange='',
+            routing_key='answer_queue',
+            body=json.dumps(payload | {'video_ids': video_ids, 'error_code': error_code, 'playlist_url': url}))
         logger.info(f"Reply-message send")
 
     def run(self) -> NoReturn:
