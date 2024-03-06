@@ -161,7 +161,8 @@ class TBotHandler:
             text = f'[Видео]({video_url})' + (f' [Плейлист]({playlist_url})' if playlist_url else '')
             await self.bot.send_video(chat_id, file_id, caption=text, parse_mode='MarkdownV2',
                                       reply_parameters=ReplyParameters(message_id, chat_id, True))
-            return Response(status=HTTPStatus.OK)
+
+        return Response(status=HTTPStatus.OK)
 
     def configure_router(self) -> NoReturn:
         """
@@ -179,7 +180,8 @@ class TBotHandler:
         """
         self.app.run(debug=debug, host=self.host, port=self.port, use_reloader=False)
 
-    if __name__ == '__main__':
-        botik = TBotHandler()
-        botik.run()
-        asyncio.run(botik.bot.close_session())
+
+if __name__ == '__main__':
+    botik = TBotHandler()
+    botik.run()
+    asyncio.run(botik.bot.close_session())

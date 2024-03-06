@@ -37,7 +37,7 @@ videohostings = {
         'host': config('VK_LOADER_HOST'),
         'port': config('VK_LOADER_PORT'),
         'playlist': 'https://vk.com/video/playlist/{0}',
-        'video': 'https://vk.com/video/{0}',
+        'video': 'https://vk.com/video?z=video{0}',
     }
 }
 

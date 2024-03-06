@@ -1,9 +1,9 @@
 """
 Управление состоянием загружаемых видеозаписей
 """
-import asyncio
 import json
 import threading
+import re
 from http import HTTPStatus
 from typing import NoReturn, Optional
 from urllib.parse import urlparse
@@ -17,7 +17,6 @@ from pika.adapters.blocking_connection import BlockingChannel
 from pika.spec import BasicProperties, Basic
 from pytube import extract
 from pytube.exceptions import RegexMatchError
-from telebot import asyncio_helper
 
 TBOT_HOST = config('TELEGRAM_BOT_HANDLER_HOST')
 TBOT_PORT = config('TELEGRAM_BOT_HANDLER_PORT')
@@ -77,19 +76,12 @@ class Loader:
         payload: dict = json.loads(body.decode("utf-8"))
         if payload['type'] == 'download':
             # TODO: Сохранять file_id в БД
-            session = asyncio.run(asyncio_helper.session_manager.get_session())
             if payload.get('payload_id', None) is None:
-                async with session.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete', json=payload):
-                    pass
-                # req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete', json=payload)
+                req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete', json=payload)
             else:
                 chats = []
                 for chat in chats:
-                    async with session.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete',
-                                            json=payload | {'chat_id': chat}):
-                        pass
-                    # req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete',
-                    #         json=payload | {})
+                    req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete', json=payload | {'chat_id': chat})
         elif payload['type'] == 'playlist':
             # TODO: Сохранять все видео в БД
             current_ids = payload['video_ids']
@@ -130,7 +122,7 @@ class Loader:
             if host == 'youtube':
                 return extract.video_id(url_raw)
             elif host == 'vk':
-                return '_'.join(url_raw.split('video')[-1].split('_')[:2]).split('%?')[0]
+                return re.split('[%?]', '_'.join(url_raw.split('video')[-1].split('_')[:2]))[0]
         except RegexMatchError as e:
             return None
 
@@ -150,7 +142,7 @@ class Loader:
             if host == 'youtube':
                 return extract.playlist_id(url_raw)
             elif host == 'vk':
-                return '_'.join(url_raw.split('playlist/')[1].split('_')[:2]).split('%?')[0]
+                return re.split('[%?]', '_'.join(url_raw.split('playlist/')[1].split('_')[:2]))[0]
         except RegexMatchError as e:
             return None
         except IndexError as e:
