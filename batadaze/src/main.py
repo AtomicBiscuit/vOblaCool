@@ -1,260 +1,255 @@
-import asyncio
+import logging
 import os
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlalchemy import select, delete
-from models import User_, Video, Playlist, Playlist_User, Playlist_Video, Base
+from threading import current_thread
+
 from dotenv import load_dotenv
+from sqlalchemy import select, delete, create_engine
+from sqlalchemy.orm import sessionmaker
+
+from batadaze.src.models import User_, Video, Playlist, Playlist_User, Playlist_Video, Base
+
+logger = logging.getLogger("DB Connector")
+
+logger.setLevel(logging.INFO)
+
+handler = logging.StreamHandler()
+
+handler.setFormatter(logging.Formatter('%(name)s - %(levelname)s - %(message)s'))
+
+logger.addHandler(handler)
+
+load_dotenv()
+
+db_host = os.getenv('POSTGRES_HOST')
+db_port = os.getenv('POSTGRES_PORT')
+db_user = os.getenv('POSTGRES_USER')
+db_pass = os.getenv('POSTGRES_PASSWORD')
+db_name = os.getenv('POSTGRES_DB')
+
+_engines = dict()
+
+
+def get_local():
+    thread = current_thread()
+    key = str(id(thread))
+    if key not in _engines.keys():
+        logger.info(f"New engine generating for {key}")
+        _engine = create_engine(
+            url=f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}",
+            echo=False,
+        )
+        _sessionmaker = sessionmaker(_engine)
+        _engines[key] = [_engine, _sessionmaker]
+    return _engines[key]
+
 
 class DB:
     @staticmethod
-    async def create_tables():
-        async with async_engine.begin() as conn:
-            # await conn.run_sync(Base.metadata.drop_all) # for tests
-            await conn.run_sync(Base.metadata.create_all)
+    def create_tables():
+        engine = get_local()[0]
+        with engine.begin() as conn:
+            #  conn.run_sync(Base.metadata.drop_all) # for tests
+            Base.metadata.create_all(conn)
 
     @staticmethod
-    async def select_users():
-        async with async_session_factory() as session:
+    def select_users():
+        with get_local()[1]() as session:
             query = select(User_)
-            result = await session.execute(query)
+            result = session.execute(query)
             users = result.scalars().all()
-
         return users
 
     @staticmethod
-    async def select_videos():
-        async with async_session_factory() as session:
+    def select_videos():
+        with get_local()[1]() as session:
             query = select(Video)
-            result = await session.execute(query)
+            result = session.execute(query)
             videos = result.scalars().all()
-        
         return videos
-                
+
     @staticmethod
-    async def add_user(chat: int):
-        async with async_session_factory() as session:
-            new_user = User_(chat_id = chat)
+    def select_playlists():
+        with get_local()[1]() as session:
+            query = select(Playlist.id)
+            result = session.execute(query)
+            playlists = result.scalars().all()
+        return playlists
+
+    @staticmethod
+    def add_user(chat: int):
+        with get_local()[1]() as session:
+            new_user = User_(id=chat)
             session.add(new_user)
-            await session.flush()
-            await session.commit()
-    
+            session.flush()
+            session.commit()
+
     @staticmethod
-    async def add_video(video, file = None):
-        async with async_session_factory() as session:
-            new_video = Video(video_key = video, file_id = file)
+    def add_video(video, file=None):
+        with get_local()[1]() as session:
+            new_video = Video(id=video, file_id=file)
             session.add(new_video)
-            await session.flush()
-            await session.commit()
-    
+            session.flush()
+            session.commit()
+
     @staticmethod
-    async def add_playlist_user(chat, playlist):
-        async with async_session_factory() as session:
-            new_playlist_user = Playlist_User(id_playlist = playlist, id_chat = chat)
+    def add_playlist_user(chat, playlist):
+        with get_local()[1]() as session:
+            new_playlist_user = Playlist_User(id_playlist=playlist, id_chat=chat)
             session.add(new_playlist_user)
-            await session.flush()
-            await session.commit()
+            session.flush()
+            session.commit()
 
     @staticmethod
-    async def add_playlist_video(video_id, playlist_id):
-        async with async_session_factory() as session:
-            new_playlist_video = Playlist_Video(id_playlist = playlist_id, id_video = video_id)
+    def add_playlist_video(video_id, playlist_id):
+        logger.info(f"Add playlist_video: {video_id}, {playlist_id}")
+        with get_local()[1]() as session:
+            new_playlist_video = Playlist_Video(id_playlist=playlist_id, id_video=video_id)
             session.add(new_playlist_video)
-            await session.flush()
-            await session.commit()
+            session.flush()
+            session.commit()
 
     @staticmethod
-    async def add_playlist(name):
-        async with async_session_factory() as session:
-            new_playlist = Playlist(playlist_key = name)
+    def add_playlist(name):
+        with get_local()[1]() as session:
+            new_playlist = Playlist(id=name)
             session.add(new_playlist)
-            await session.flush()
-            await session.commit()
+            session.flush()
+            session.commit()
 
     @staticmethod
-    async def get_subscribed_users(playlist):
-        async with async_session_factory() as session:
-            query = (select(Playlist_User.id_chat).select_from(Playlist_User)).where(Playlist_User.id_playlist == playlist)
-            result = await session.execute(query)
+    def get_subscribed_users(playlist):
+        with get_local()[1]() as session:
+            query = (select(Playlist_User.id_chat).select_from(Playlist_User)).where(
+                Playlist_User.id_playlist == playlist)
+            result = session.execute(query)
             users = result.scalars().all()
-        
         return users
-    
+
     @staticmethod
-    async def get_all_videos(playlist):
-        async with async_session_factory() as session:
-            query = (select(Playlist_Video.id_video).select_from(Playlist_Video)).where(Playlist_Video.id_playlist == playlist)
-            result = await session.execute(query)
+    def get_all_videos(playlist):
+        with get_local()[1]() as session:
+            query = (select(Playlist_Video.id_video).select_from(Playlist_Video)).where(
+                Playlist_Video.id_playlist == playlist)
+            result = session.execute(query)
             videos = result.scalars().all()
-        
         return videos
-    
-    @staticmethod
-    async def delete_user(chat):
-        async with async_session_factory() as session:
-            query = (delete(User_).where(User_.chat_id == chat))
-            await session.execute(query)
-            await session.flush()
-            await session.commit()
 
     @staticmethod
-    async def delete_video(video):
-        async with async_session_factory() as session:
-            query = (delete(Video).where(Video.video_key == video))
-            await session.execute(query)
-            await session.flush()
-            await session.commit()
-
-
-    @staticmethod
-    async def delete_playlist(key):
-        async with async_session_factory() as session:
-            query = (delete(Playlist).where(Playlist.playlist_key == key))
-            await session.execute(query)
-            await session.flush()
-            await session.commit()
+    def delete_user(chat):
+        with get_local()[1]() as session:
+            query = (delete(User_).where(User_.id == chat))
+            session.execute(query)
+            session.flush()
+            session.commit()
 
     @staticmethod
-    async def get_id_of_user(chat):
-        async with async_session_factory() as session:
-            query = (select(User_.id).select_from(User_)).where(User_.chat_id == chat)
-            result = await session.execute(query)
-            id = result.scalars().all()
-
-        return id
-    
-    @staticmethod
-    async def get_id_of_video(video):
-        async with async_session_factory() as session:
-            query = (select(Video.id).select_from(Video)).where(Video.video_key == video)
-            result = await session.execute(query)
-            id = result.scalars().all()
-        
-        return id
-    
+    def delete_video(video):
+        with get_local()[1]() as session:
+            query = (delete(Video).where(Video.id == video))
+            session.execute(query)
+            session.flush()
+            session.commit()
 
     @staticmethod
-    async def get_id_of_playlist(name):
-        async with async_session_factory() as session:
-            query = (select(Playlist.id).select_from(Playlist)).where(Playlist.playlist_key == name)
-            result = await session.execute(query)
-            id = result.scalars().all()
-        
-        return id
-    
-    @staticmethod
-    async def delete_playlist_video(playlist, video):
-        async with async_session_factory() as session:
-            query = (delete(Playlist_Video).where(Playlist_Video.id_video == video).where(Playlist_Video.id_playlist == playlist))
-            await session.execute(query)
-            await session.flush()
-            await session.commit()
+    def delete_playlist(key):
+        with get_local()[1]() as session:
+            query = (delete(Playlist).where(Playlist.id == key))
+            session.execute(query)
+            session.flush()
+            session.commit()
 
     @staticmethod
-    async def delete_playlist_user(playlist, chat):
-        async with async_session_factory() as session:
-            query = (delete(Playlist_User).where(Playlist_User.id_chat == chat).where(Playlist_User.id_playlist == playlist))
-            await session.execute(query)
-            await session.flush()
-            await session.commit()
+    def delete_playlist_video(playlist, video):
+        with get_local()[1]() as session:
+            query = (delete(Playlist_Video).where(Playlist_Video.id_video == video).where(
+                Playlist_Video.id_playlist == playlist))
+            session.execute(query)
+            session.flush()
+            session.commit()
 
     @staticmethod
-    async def update_playlist(id: int, new_name: str):
-        async with async_session_factory() as session:
-            changable = await session.get(Playlist, id)
-            changable.playlist_key = new_name
-            await session.commit()
+    def delete_playlist_user(playlist, chat):
+        with get_local()[1]() as session:
+            query = (
+                delete(Playlist_User).where(Playlist_User.id_chat == chat).where(Playlist_User.id_playlist == playlist))
+            session.execute(query)
+            session.flush()
+            session.commit()
 
     @staticmethod
-    async def update_video(id: int, new_file_id: str, new_video_key: str):
-        async with async_session_factory() as session:
-            changable = await session.get(Video, id)
+    def update_video(id: str, new_file_id: str):
+        with get_local()[1]() as session:
+            changable = session.get(Video, id)
             changable.file_id = new_file_id
-            changable.video_key = new_video_key
-            await session.commit()
-    
-    @staticmethod
-    async def get_video(id: int):
-        async with async_session_factory() as session:
-            target = await session.get(Video, id)
+            session.commit()
 
+    @staticmethod
+    def get_video(id: str):
+        with get_local()[1]() as session:
+            target = session.get(Video, id)
         return target
 
     @staticmethod
-    async def get_user(id: int):
-        async with async_session_factory() as session:
-            target = await session.get(User_, id)
-
+    def get_user(id: int):
+        with get_local()[1]() as session:
+            target = session.get(User_, id)
         return target
 
     @staticmethod
-    async def get_playlist(id: int):
-        async with async_session_factory() as session:
-            target = await session.get(Playlist, id)
-
+    def get_playlist(id: str):
+        with get_local()[1]() as session:
+            target = session.get(Playlist, id)
         return target
 
 
 # example of using
-async def test():
-    await DB.create_tables()
+def test():
+    DB.create_tables()
 
-    await DB.add_user(123)
-    await DB.add_user(124)
-    await DB.add_user(125)
-    await DB.select_users()
+    DB.add_user(123)
+    DB.add_user(124)
+    DB.add_user(125)
+    DB.select_users()
 
-    await DB.add_video("cat", "youtube")
-    await DB.add_video("dog", "youtube")
-    await DB.add_video("fail", "youtube")
-    await DB.select_videos()
-    
-    await DB.add_playlist("agil")
-    await DB.add_playlist("amirov")
-    await DB.add_playlist("roma")
-    await DB.update_playlist(2, "agility")
+    DB.add_video("cat", "youtube")
+    DB.add_video("dog", "youtube")
+    DB.add_video("fail", "youtube")
+    DB.select_videos()
 
-    await DB.add_playlist_user(1, 1)
-    await DB.add_playlist_user(2, 1)
-    await DB.add_playlist_user(1, 2)
-    await DB.add_playlist_user(3, 3)
-    await DB.get_subscribed_users(1)
-    
-    await DB.add_playlist_video(1, 1)
-    await DB.add_playlist_video(1, 2)
-    await DB.add_playlist_video(1, 3)
-    await DB.add_playlist_video(2, 1)
-    await DB.add_playlist_video(2, 2)
-    await DB.add_playlist_video(2, 3)
-    await DB.add_playlist_video(3, 1)
-    await DB.add_playlist_video(3, 2)
-    await DB.add_playlist_video(3, 3)
-    await DB.get_all_videos(2)
+    DB.add_playlist("agil")
+    DB.add_playlist("amirov")
+    DB.add_playlist("roma")
 
-    await DB.get_id_of_user(124)
+    DB.add_playlist_user('agil', 123)
+    DB.add_playlist_user("amirov", 123)
+    DB.add_playlist_user('agil', 124)
+    DB.add_playlist_user("roma", 125)
+    DB.get_subscribed_users(123)
 
-    await DB.get_id_of_video("cat")
+    DB.add_playlist_video('agil', "cat")
+    DB.add_playlist_video('agil', "dog")
+    DB.add_playlist_video('agil', "fail")
+    DB.add_playlist_video("amirov", "cat")
+    DB.add_playlist_video("amirov", "dog")
+    DB.add_playlist_video("amirov", "fail")
+    DB.add_playlist_video("roma", "cat")
+    DB.add_playlist_video("roma", "dog")
+    DB.add_playlist_video("roma", "fail")
+    DB.get_all_videos("amirov")
 
-    await DB.get_id_of_playlist("roma")
+    DB.delete_user(123)
+    DB.delete_video("cat")
 
-    await DB.delete_user(123)
-    await DB.delete_video("cat")
-    
-    await DB.delete_playlist("roma")
-    await DB.delete_playlist_video(1, 2)
+    DB.delete_playlist("roma")
+    DB.delete_playlist_video('agil', "dog")
 
+
+def init():
+    DB.add_user(1)
+
+
+DB.create_tables()
 
 if __name__ == '__main__':
-    load_dotenv()
-    db_host = os.getenv('DB_HOST')
-    db_port = os.getenv('DB_PORT')
-    db_user = os.getenv('DB_USER')
-    db_pass = os.getenv('DB_PASS')
-    db_name = os.getenv('DB_NAME')
-
-    async_engine = create_async_engine(
-    url = f"postgresql+asyncpg://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}",
-    echo=False,
-    )
-    async_session_factory = async_sessionmaker(async_engine)
-
-    asyncio.run(test())
+    # test()
+    init()

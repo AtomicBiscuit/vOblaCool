@@ -1,7 +1,12 @@
-FROM postgres:latest
+FROM ubuntu:latest
+FROM python:3.10-slim
 
-ENV POSTGRES_USER docker
-ENV POSTGRES_PASSWORD docker
-ENV POSTGRES_DB DB
+LABEL t="test_db"
 
-RUN apt-get update && apt-get install python3-pip -y && pip install --upgrade pip && $ pip install -r requirements.txt
+WORKDIR /app
+COPY . .
+
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
+
+ENTRYPOINT python src/main.py

@@ -83,7 +83,7 @@ class Worker:
     """
 
     def __init__(self):
-        self.pool = ThreadPoolExecutor(max_workers=3)
+        self.pool = ThreadPoolExecutor(max_workers=10)
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=RMQ_HOST, port=RMQ_PORT, heartbeat=0))
         self.channel = self.connection.channel()
         self.channel.queue_declare('task_queue')
@@ -111,6 +111,8 @@ class Worker:
             self.pool.submit(self.download, payload)
         elif payload['type'] == 'playlist':
             self.pool.submit(self.playlist, payload)
+        elif payload['type'] == 'return':
+            self.pool.submit(self._return, payload)
 
     @staticmethod
     def download(payload: dict) -> NoReturn:
@@ -153,7 +155,7 @@ class Worker:
         """
         Получает информацию о всех видеозаписях в плейлисте
 
-        :param payload: Словарь с параметрами, для начала загрузки требуются поля `url`, `hosting`
+        :param payload: Словарь с параметрами, для работы требуются поля `playlist_id`, `hosting`
         """
         bot, con, ch = get_local()
         playlist_id = payload['playlist_id']
@@ -163,10 +165,10 @@ class Worker:
         error_code = None
 
         logger.info(f"Playlist get start, url: {url}")
-        response = requests.post(
-            f'http://{videohostings[hosting]["host"]}:{videohostings[hosting]["port"]}/api/download',
-            json={'url': url},
-            timeout=30
+        response = requests.get(
+            f'http://{videohostings[hosting]["host"]}:{videohostings[hosting]["port"]}/api/get/playlist',
+            params={'url': url},
+            timeout=100
         )
         if response.status_code == HTTPStatus.OK:
             video_ids = json.loads(response.text)['video_ids']
@@ -178,6 +180,22 @@ class Worker:
             exchange='',
             routing_key='answer_queue',
             body=json.dumps(payload | {'video_ids': video_ids, 'error_code': error_code, 'playlist_url': url}))
+        logger.info(f"Reply-message send")
+
+    @staticmethod
+    def _return(payload: dict) -> NoReturn:
+        """
+        Возвращает запрос как ответ
+
+        :param payload: Словарь с параметрами
+        """
+        bot, con, ch = get_local()
+        url = videohostings[payload['hosting']]['video'].format(payload['video_id'])
+        logger.info(f"Return task accept")
+        ch.basic_publish(
+            exchange='',
+            routing_key='answer_queue',
+            body=json.dumps(payload | {'video_url': url}))
         logger.info(f"Reply-message send")
 
     def run(self) -> NoReturn:

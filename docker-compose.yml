@@ -1,6 +1,14 @@
 version: '3'
 
 services:
+  db:
+    image: 'postgres'
+    restart: always
+    expose:
+      - '${POSTGRES_PORT}'
+    env_file:
+      - ./.env
+
   bot_server:
     build:
       context: ./src/py-bot-server
@@ -23,8 +31,8 @@ services:
 
   downloader:
     build:
-      context: ./src/downloader
-      dockerfile: ./Dockerfile
+      context: .
+      dockerfile: ./src/downloader/Dockerfile
     ports:
       - '${DOWNLOADER_PORT}:${DOWNLOADER_PORT}'
     restart: always

@@ -56,7 +56,7 @@ class VKLoader:
         """
         Загружает видео с использованием библиотеки youtube_dlp
 
-        :return: Response 200 с путём к файлу если загрузка удалась, BadResponse 413|400 иначе
+        :return: Response 200 с путём к файлу если загрузка удалась, BadResponse 413|401|400 иначе
         """
         payload = request.json
         url_raw = payload['url']
@@ -82,7 +82,10 @@ class VKLoader:
             logger.info(f'Download complete, file: {file_path}')
         except DownloadError as e:
             logger.warning(f"Cath: {e.__class__.__name__}, {e}, {e.args}")
-            code = HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+            if 'Sign up' in e.msg:
+                code = HTTPStatus.UNAUTHORIZED
+            else:
+                code = HTTPStatus.REQUEST_ENTITY_TOO_LARGE
         except YoutubeDLError as e:
             logger.error(f"Cath unexpected error: {e.__class__.__name__}, {e}, {e.args}")
             code = HTTPStatus.BAD_REQUEST
