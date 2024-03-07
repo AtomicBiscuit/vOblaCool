@@ -175,8 +175,8 @@ class TBotHandler:
             elif error_code == HTTPStatus.BAD_REQUEST:
                 message_text = 'Загрузка невозможна'
             elif error_code == HTTPStatus.REQUEST_ENTITY_TOO_LARGE:
-                message_text = ('Загрузка невозможна: любая доступная конфигурация видео-аудио потоков весит больше '
-                                '500МБ')
+                message_text = ('Загрузка невозможна: Видео не найдено, либо любая доступная конфигурация видео-аудио '
+                                'потоков весит больше 1000МБ')
             else:
                 message_text = 'Непредвиденная ошибка при попытке загрузки'
             self.bot.send_message(chat_id, message_text,

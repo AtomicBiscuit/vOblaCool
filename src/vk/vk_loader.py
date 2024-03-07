@@ -66,7 +66,7 @@ class VKLoader:
         params = {
             'paths': {'home': '../media'},
             'nocheckcertificate': True,
-            'format': 'b[filesize_approx<501M]',
+            'format': 'b[filesize_approx<999M]',
             'nopart': True,
             'noprogress': True,
             'quiet': True,

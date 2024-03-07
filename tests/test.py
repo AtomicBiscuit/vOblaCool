@@ -71,7 +71,6 @@ class BaseWorker(TestCase):
 class WorkerYoutubeTestCase(BaseWorker):
     """
     Класс для тестирования функционала Worker для взаимодействия с youtube
-    :
     """
     hosting = 'youtube'
 
@@ -141,8 +140,8 @@ class WorkerYoutubeTestCase(BaseWorker):
 
 class WorkerVkTestCase(BaseWorker):
     """
-   Класс для тестирования функционала Worker для взаимодействия с vk
-   """
+    Класс для тестирования функционала Worker для взаимодействия с vk
+    """
     hosting = 'vk'
 
     @patch('json.dumps', side_effect=mock_to_dict)
