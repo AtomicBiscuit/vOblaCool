@@ -47,7 +47,8 @@ class Playlist(Base):
     __tablename__ = "playlist"
 
     id: Mapped[str_256pk]
-
+    host: Mapped[str_256]
+    is_updating: Mapped[bool]
 
 class Playlist_User(Base):
     __tablename__ = "playlist_user"
