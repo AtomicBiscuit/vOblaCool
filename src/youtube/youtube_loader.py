@@ -6,6 +6,20 @@ from flask import request, Response
 from pytube import YouTube
 from pytube.exceptions import AgeRestrictedError, VideoPrivate, PytubeError
 
+import logging
+import os
+
+logger = logging.getLogger("YOUTUBE_LOADER")
+
+logger.setLevel(logging.INFO)
+
+handler = logging.StreamHandler()
+
+handler.setFormatter(logging.Formatter('%(name)s - %(levelname)s - %(message)s'))
+
+logger.addHandler(handler)
+
+sep = os.sep
 
 # Временное решение
 class YLoaderPrototype:
@@ -39,6 +53,7 @@ class YLoaderPrototype:
         self.app.add_url_rule('/api/download', view_func=self.download, methods=['POST'])
 
     def run(self, debug: bool = True) -> None:
+        logger.info('Starting')
         self.app.run(debug=debug, host=self.host, port=self.port, use_reloader=False)
 
 
