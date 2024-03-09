@@ -1,20 +1,18 @@
+"""
+Модуль для взаимодействия с youtube api
+"""
+
 from http import HTTPStatus
 
 import flask
 from decouple import config
 from flask import request, Response
-from pytube import YouTube
+from pytube import YouTube, Playlist
 from pytube.exceptions import AgeRestrictedError, VideoPrivate, PytubeError
 
-import datetime
 import json
 import logging
 import os
-import ssl
-
-app_env = config("APP_ENVIRONMENT")
-if app_env:
-    ssl._create_default_https_context = ssl._create_stdlib_context
 
 logger = logging.getLogger("YOUTUBE_LOADER")
 
@@ -79,13 +77,36 @@ class YoutubeLoader:
             code = HTTPStatus.BAD_REQUEST
         return Response(file_path, status=code)
 
+    @staticmethod
+    async def get_playlist() -> Response:
+        """
+        Возвращает информацию о всех видео в плейлисте с использованием библиотеки pytube
+
+        :return: Response 200 со списком video_id если загрузка удалась, BadResponse 400 иначе
+        """
+        payload = request.json
+        url = payload['url']
+        video_ids = []
+        code = HTTPStatus.OK
+        if url is None:
+            return Response(status=HTTPStatus.BAD_REQUEST)
+        try:
+            logger.info(f'Fetching all videos in {url}')
+            for video in Playlist(url).videos:
+                video_ids += [video.video_id]
+            logger.info(f'Fetching complete, video_ids: {video_ids}')
+        except PytubeError as e:
+            logger.error(f"Cath unexpected error: {e.__class__.__name__}, {e}, {e.args}")
+            code = HTTPStatus.BAD_REQUEST
+        return Response(json.dumps({'video_ids': video_ids}), status=code)
+
     def configure_router(self):
         """
         Прописывает все пути для взаимодействия с Flask
         """
         self.app.add_url_rule('/', view_func=self.main_page, methods=['GET'])
         self.app.add_url_rule('/api/download', view_func=self.download, methods=['POST'])
-        # self.app.add_url_rule('/api/get/playlist', view_func=self.get_playlist, methods=['GET'])
+        self.app.add_url_rule('/api/downloadPlaylist', view_func=self.get_playlist, methods=['POST'])
 
     def run(self, debug: bool = True) -> None:
         """
