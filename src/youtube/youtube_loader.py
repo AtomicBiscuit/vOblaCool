@@ -26,16 +26,14 @@ logger.addHandler(handler)
 
 sep = os.sep
 
+
 class YoutubeLoader:
     """
     Класс для загрузки видео и получения информация о плейлистах Youtube
 
-    :param app: Flask-приложение для общения с другими модулями
-    :type app: :class: `flask.app.Flask`
-    :param host: Хост для запуска
-    :type host: :class: `str`
-    :param port: Порт для запуска
-    :type port: :class: `int`
+    :ivar `flask.app.Flask` app: Flask-приложение для общения с другими модулями
+    :iver `str` host: Хост для запуска
+    :ivar `int` port: Порт для запуска
     """
 
     def __init__(self):
@@ -66,9 +64,15 @@ class YoutubeLoader:
         file_path = None
         try:
             logger.info(f'Download start url: {url_raw}')
-            videos = YouTube(url_raw).streams.filter(progressive=True, file_extension='mp4', resolution='720p').desc()
-            file_path = videos.first().download('../media')
-            logger.info(f'Download complete, file: {file_path}')
+            videos = YouTube(url_raw).streams.filter(progressive=True, file_extension='mp4').order_by(
+                'resolution').desc()
+            for video in videos:
+                if video.filesize_mb < 1000:
+                    file_path = videos.first().download('../media')
+                    logger.info(f'Download complete, file: {file_path}')
+                    break
+            else:
+                code = HTTPStatus.REQUEST_ENTITY_TOO_LARGE
         except (AgeRestrictedError, VideoPrivate) as e:
             logger.warning(f"Cath: {e.__class__.__name__}, {e}, {e.args}")
             code = HTTPStatus.UNAUTHORIZED
@@ -84,8 +88,7 @@ class YoutubeLoader:
 
         :return: Response 200 со списком video_id если загрузка удалась, BadResponse 400 иначе
         """
-        payload = request.json
-        url = payload['url']
+        url = request.args.get('url', None)
         video_ids = []
         code = HTTPStatus.OK
         if url is None:
@@ -106,7 +109,7 @@ class YoutubeLoader:
         """
         self.app.add_url_rule('/', view_func=self.main_page, methods=['GET'])
         self.app.add_url_rule('/api/download', view_func=self.download, methods=['POST'])
-        self.app.add_url_rule('/api/downloadPlaylist', view_func=self.get_playlist, methods=['POST'])
+        self.app.add_url_rule('/api/get/playlist', view_func=self.get_playlist, methods=['GET'])
 
     def run(self, debug: bool = True) -> None:
         """

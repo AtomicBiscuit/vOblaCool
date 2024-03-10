@@ -247,6 +247,26 @@ class Loader:
 
         return Response(status=HTTPStatus.OK)
 
+    async def delete_playlist(self) -> NoReturn:
+        """
+        Обрабатывает POST запрос на удаление плейлиста
+        """
+        payload = request.json
+        url_raw = payload['url']
+        playlist_id = None
+        if self.extract_playlist_id(url_raw, 'youtube'):
+            playlist_id = self.extract_playlist_id(url_raw, 'youtube')
+        elif self.extract_playlist_id(url_raw, 'vk'):
+            playlist_id = self.extract_playlist_id(url_raw, 'vk')
+        if playlist_id is None:
+            return Response(status=HTTPStatus.OK)
+
+        DB.delete_playlist_user(playlist_id, payload['chat_id'])
+        if len(DB.get_subscribed_users(playlist_id)) == 0:
+            DB.delete_playlist(playlist_id)
+
+        return Response(status=HTTPStatus.OK)
+
     async def _update_playlist(self, playlist_id: str, hosting: str, upload: bool) -> NoReturn:
         """
         Обновляет данные о плейлисте в базе данных
@@ -284,6 +304,7 @@ class Loader:
         self.app.add_url_rule('/', view_func=self.main_page, methods=['GET'])
         self.app.add_url_rule('/api/download/start', view_func=self.download_start, methods=['POST'])
         self.app.add_url_rule('/api/playlist/add', view_func=self.add_playlist, methods=['POST'])
+        self.app.add_url_rule('/api/playlist/delete', view_func=self.delete_playlist, methods=['POST'])
         self.app.add_url_rule('/api/playlist/update', view_func=self.update_playlist, methods=['POST'])
 
     def run(self, debug: bool = True) -> NoReturn:

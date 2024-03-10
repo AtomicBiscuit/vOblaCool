@@ -4,6 +4,7 @@ from threading import current_thread
 
 from dotenv import load_dotenv
 from sqlalchemy import select, delete, create_engine
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
 from batadaze.src.models import User_, Video, Playlist, Playlist_User, Playlist_Video, Base
@@ -25,7 +26,7 @@ db_port = os.getenv('POSTGRES_PORT')
 db_user = os.getenv('POSTGRES_USER')
 db_pass = os.getenv('POSTGRES_PASSWORD')
 db_name = os.getenv('POSTGRES_DB')
-create_tables = os.getenv('CREATE_TABLES')
+create_tables = os.getenv('CREATE_TABLES', False)
 
 _engines = dict()
 
@@ -353,8 +354,11 @@ def init():
     print(DB.select_users())
 
 
-if create_tables:
-    DB.create_tables()
+if create_tables == 'True':
+    try:
+        DB.create_tables()
+    except OperationalError as e:
+        logger.error(e)
 
 if __name__ == '__main__':
     # test()

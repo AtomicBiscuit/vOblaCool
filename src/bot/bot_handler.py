@@ -47,6 +47,15 @@ class AddPlaylistState(StatesGroup):
     link = State()
 
 
+class DeletePlaylistState(StatesGroup):
+    """
+    Состояния нужные для удаления плейлиста
+
+    :cvar `telebot.handler_backends.State` link: Получение ссылки
+    """
+    link = State()
+
+
 class TBotHandler:
     """
     Класс-оболочка над Телеграм ботом, реализующая API для взаимодействия.
@@ -118,6 +127,22 @@ class TBotHandler:
                 text = 'Некорректная ссылка'
             elif response.status_code == HTTPStatus.OK:
                 text = 'Успешная подписка на обновления'
+            else:
+                text = 'Непредвиденная ошибка'
+            self.bot.reply_to(message, text)
+
+        @self.bot.message_handler(commands=['del_playlist'])
+        def __t_on_add_playlist(message: Message):
+            self.bot.set_state(message.from_user.id, DeletePlaylistState.link, message.chat.id)
+            self.bot.reply_to(message, 'Введите ссылку: ')
+
+        @self.bot.message_handler(state=DeletePlaylistState.link)
+        def __t_on_add_playlist_link(message: Message):
+            self.bot.delete_state(message.from_user.id, message.chat.id)
+            response = requests.post(f'http://{DOWNLOADER_HOST}:{DOWNLOADER_PORT}/api/playlist/delete',
+                                     json={'chat_id': message.chat.id, 'url': message.text})
+            if response.status_code == HTTPStatus.OK:
+                text = 'Подписка на обновления удалена'
             else:
                 text = 'Непредвиденная ошибка'
             self.bot.reply_to(message, text)
