@@ -117,7 +117,7 @@ class Loader:
         def __on_playlist(payload: dict) -> None:
             playlist_id = payload.get('playlist_id', '0')
             current_ids = DB.get_all_videos(playlist_id)
-            new_ids = [_id for _id in payload['video_ids'] if _id not in current_ids]
+            new_ids = {_id for _id in payload['video_ids'] if _id not in current_ids}
             for _id in new_ids:
                 video = DB.get_video(_id)
                 if video is None:
@@ -331,7 +331,7 @@ def update_all_playlists() -> NoReturn:
 
 def schedule_tasks():
     logger.info("Generating schedule tasks")
-    schedule.every(1).minutes.do(update_all_playlists)
+    schedule.every(5).minutes.do(update_all_playlists)
     logger.info("Schedule pending start")
     while True:
         schedule.run_pending()

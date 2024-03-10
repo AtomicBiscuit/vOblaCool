@@ -124,7 +124,7 @@ class DB:
 
     @staticmethod
     def add_playlist(name: str, platform: str, status: bool = False) -> None:
-        """Добавляет нового плейлист в базу данных.
+        """Добавляет новый плейлист в базу данных.
 
         :param name: название плейлиста
         :param platform: платформа, с которой идет скачивание
@@ -305,7 +305,7 @@ class DB:
             session.commit()
 
     @staticmethod
-    def get_user(id: str) -> Video:
+    def get_user(id: str) -> User_:
         """Получает объект класса User_ по id (нужно для проверки существования пользователя в базе данных).
 
         :param id: id пользователя

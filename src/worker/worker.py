@@ -171,7 +171,7 @@ class Worker:
         error_code = None
         video_ids = json.loads(response.text)['video_ids']
         if response.status_code == HTTPStatus.OK:
-            logger.info(f"Playlist get complete, videos: {video_ids}")
+            logger.info(f"Playlist get complete")
         else:
             logger.warning(f"Playlist get fail with status code: {response.status_code}")
             error_code = response.status_code
