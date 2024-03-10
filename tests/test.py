@@ -28,21 +28,21 @@ class BaseWorker(TestCase):
     hosting = None
     client = Worker
 
-    def base_download(self, local_mock: MagicMock, req_post_mock: MagicMock, url: str, error: bool, body: dict,
+    def base_download(self, local_mock: MagicMock, req_post_mock: MagicMock, video_id: str, error: bool, body: dict,
                       pre_logic: Callable = None, post_logic: Callable = None) -> NoReturn:
         """
         Имитирует отправку запроса на загрузку видео
 
         :param local_mock: Mock для имитации получения локальных значений потока
         :param req_post_mock: Mock для имитации отправки post запросов
-        :param url: Ссылка на загружаемое видео
+        :param video_id: Ссылка на загружаемое видео
         :param error: True если загрузка видео завершилось ошибкой
         :param body: Ожидаемые ответные данные
         :param pre_logic: Функция, вызываемая до отправки запроса
         :param post_logic: Функция, вызываемая после отправки запроса
         """
         payload = {
-            'url': url,
+            'video_id': video_id,
             'hosting': self.hosting
         }
         mocks = MagicMock(), MagicMock(), MagicMock()
@@ -52,7 +52,7 @@ class BaseWorker(TestCase):
         self.client.download(payload)
         req_post_mock.assert_called_once_with(
             f"http://{videohostings[self.hosting]['host']}:{videohostings[self.hosting]['port']}/api/download",
-            json={'url': payload['url']},
+            json={'url': videohostings[self.hosting]['video'].format(video_id)},
             timeout=1000
         )
         if error:
@@ -62,7 +62,7 @@ class BaseWorker(TestCase):
         mocks[2].basic_publish.assert_called_once_with(
             exchange='',
             routing_key='answer_queue',
-            body=payload | body
+            body=payload | body | {'video_url': videohostings[self.hosting]['video'].format(video_id)}
         )
         if post_logic:
             post_logic(mocks)
@@ -92,7 +92,7 @@ class WorkerYoutubeTestCase(BaseWorker):
         self.base_download(
             local_mock,
             req_post_mock,
-            'https://www.youtube.com/watch?v=dQw4w9WgXcQ&pp=ygULcmljayBhc3RsZXk%3D',
+            'dQw4w9WgXcQ&pp=ygULcmljayBhc3RsZXk%3D',
             False,
             {'file_id': '7986223', 'error_code': None},
             _pre
@@ -113,7 +113,7 @@ class WorkerYoutubeTestCase(BaseWorker):
         self.base_download(
             local_mock,
             req_post_mock,
-            'https://www.youtube.com/watch?v=dQw4w9WgXcQ&pp=ygULcmljayBhc3RsZXk%3D',
+            'dQw4w9WgXcQ&pp=ygULcmljayBhc3RsZXk%3D',
             True,
             {'file_id': None, 'error_code': 500},
         )
@@ -132,7 +132,7 @@ class WorkerYoutubeTestCase(BaseWorker):
         self.base_download(
             local_mock,
             req_post_mock,
-            'https://www.youtube.com/watch?v=777777777777777777777777777777',
+            '777777777777777777777777777777',
             True,
             {'file_id': None, 'error_code': req_post_mock.return_value.status_code},
         )
@@ -157,14 +157,14 @@ class WorkerVkTestCase(BaseWorker):
         :param json_dumps_mock: Mock для имитации сериализаци данных
         """
         def _pre(mocks):
-            mocks[0].send_video.return_value.video.file_id = '704977679_456239136'
+            mocks[0].send_video.return_value.video.file_id = 'ERTGHJKUYTFG498'
 
         self.base_download(
             local_mock,
             req_post_mock,
-            'https://vk.com/video?q=бэбэй%20жестко%20спел%20русская%20дорога&z=video704977679_456239136%2Fpl_cat_trends',
+            '704977679_456239136',
             False,
-            {'file_id': '704977679_456239136', 'error_code': None},
+            {'file_id': 'ERTGHJKUYTFG498', 'error_code': None},
             _pre
         )
 
@@ -183,7 +183,7 @@ class WorkerVkTestCase(BaseWorker):
         self.base_download(
             local_mock,
             req_post_mock,
-            'https://vk.com/video?q=бэбэй%20жестко%20спел%20русская%20дорога&z=video704977679_36%2Fpl_cat_trendsD',
+            '704977679_36',
             True,
             {'file_id': None, 'error_code': 500},
         )
@@ -202,7 +202,7 @@ class WorkerVkTestCase(BaseWorker):
         self.base_download(
             local_mock,
             req_post_mock,
-            'https://vk.com/video?z=video704977679_36',
+            '704977679_36',
             True,
             {'file_id': None, 'error_code': req_post_mock.return_value.status_code},
         )
