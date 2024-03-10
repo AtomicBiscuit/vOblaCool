@@ -39,6 +39,7 @@ def get_local():
         _engine = create_engine(
             url=f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}",
             echo=False,
+            pool_pre_ping=True,
         )
         _sessionmaker = sessionmaker(_engine)
         _engines[key] = [_engine, _sessionmaker]
