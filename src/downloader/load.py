@@ -102,7 +102,10 @@ class Loader:
 
         def __on_download(payload: dict) -> None:
             video_id = payload['video_id']
-            if DB.get_video(video_id) is None:
+            if payload.get('playlist_id', None) and payload.get('error_code',
+                                                                None) == HTTPStatus.REQUEST_ENTITY_TOO_LARGE:
+                DB.delete_video(payload['video_id'])
+            elif DB.get_video(video_id) is None:
                 DB.add_video(video_id, payload['file_id'])
             else:
                 DB.update_video(video_id, payload['file_id'])

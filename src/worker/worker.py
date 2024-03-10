@@ -194,7 +194,7 @@ class Worker:
         if payload.get('video_id', None):
             video_url = videohostings[payload['hosting']]['video'].format(payload['video_id'])
         if payload.get('playlist_id', None):
-            playlist_url = videohostings[payload['hosting']]['video'].format(payload['playlist_id'])
+            playlist_url = videohostings[payload['hosting']]['playlist'].format(payload['playlist_id'])
         logger.info(f"Return task accept")
         ch.basic_publish(
             exchange='',
