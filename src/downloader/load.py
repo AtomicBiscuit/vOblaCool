@@ -240,7 +240,7 @@ class Loader:
         if DB.get_user(payload['chat_id']) is None:
             DB.add_user(payload['chat_id'])
         if DB.get_playlist(playlist_id) is None:
-            DB.add_playlist(playlist_id, hosting)
+            DB.add_playlist(playlist_id, hosting, True)
             await self._update_playlist(playlist_id, hosting, False)
         if payload['chat_id'] not in DB.get_subscribed_users(playlist_id):
             DB.add_playlist_user(payload['chat_id'], playlist_id)
