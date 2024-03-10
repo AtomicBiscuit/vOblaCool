@@ -87,7 +87,9 @@ class TBotHandler:
 
         @self.bot.message_handler(commands=['start'])
         def __t_on_start(message: Message):
-            self.bot.reply_to(message, 'Приветствую тебя, искатель. Команда /download чтобы загрузить видео.')
+            self.bot.reply_to(message, 'Приветствую тебя, искатель. Команда /download чтобы загрузить видео. '
+                                       '/add_playlist чтобы подписаться на плейлист. /del_playlist чтобы отписаться '
+                                       'от него.')
 
         @self.bot.message_handler(commands=['download'])
         def __t_on_download(message: Message):
