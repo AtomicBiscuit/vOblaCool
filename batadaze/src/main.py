@@ -4,6 +4,7 @@ from threading import current_thread
 
 from dotenv import load_dotenv
 from sqlalchemy import select, delete, create_engine
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
 from models import User_, Video, Playlist, Playlist_User, Playlist_Video, Base
@@ -25,6 +26,7 @@ db_port = os.getenv('POSTGRES_PORT')
 db_user = os.getenv('POSTGRES_USER')
 db_pass = os.getenv('POSTGRES_PASSWORD')
 db_name = os.getenv('POSTGRES_DB')
+create_tables = os.getenv('CREATE_TABLES', False)
 
 _engines = dict()
 
@@ -44,9 +46,12 @@ def get_local():
 
 
 class DB:
+    """
+    """
+
     @staticmethod
     def create_tables() -> None:
-        '''creates database tables for current engine'''
+        """Создает все таблицы для данного движка"""
         logger.info("Creating tables")
 
         engine = get_local()[0]
@@ -56,7 +61,7 @@ class DB:
 
     @staticmethod
     def select_users() -> list:
-        '''returns list of User_ class objects'''
+        """Возвращает список всех пользователей бота в виде объектов класса `User_`"""
         logger.info("Getting list of users")
 
         with get_local()[1]() as session:
@@ -67,7 +72,7 @@ class DB:
 
     @staticmethod
     def select_videos() -> list:
-        '''returns list of Video class objects'''
+        """Возвращает список всех скачанных видео в виде объектов класса `Video`"""
         logger.info("Getting list of videos")
 
         with get_local()[1]() as session:
@@ -78,22 +83,21 @@ class DB:
 
     @staticmethod
     def select_playlists() -> list:
-        '''returns list of Playlist class objects'''
+        """Возвращает список всех плейлистов в виде объектов класса `Playlist`"""
         logger.info("Getting list of playlists")
 
         with get_local()[1]() as session:
-            query = select(Playlist.id)
+            query = select(Playlist)
             result = session.execute(query)
             playlists = result.scalars().all()
         return playlists
 
     @staticmethod
     def add_user(chat: int) -> None:
-        '''Adds new user to out database.
+        """Добавляет нового пользователя в базу данных.
 
-        Arguments:
-            chat -- id of user (primary key)
-        '''
+        :param chat: id пользователя
+        """
         logger.info(f"Adding new user: {chat}")
 
         with get_local()[1]() as session:
@@ -104,16 +108,11 @@ class DB:
 
     @staticmethod
     def add_video(video: str, file: str = None) -> None:
-        '''Adds new video to out database.
+        """Добавляет новое видео в базу данных.
 
-        Arguments:
-            video -- id of video (primary key)
-
-            file -- path of video (default = None)
-
-        Return value:
-            None 
-        '''
+        :param video: id of video (primary key)
+        :param file: путь файла, если есть (иначе None)
+        """
         logger.info(f"Adding new video: {video}, {file}")
 
         with get_local()[1]() as session:
@@ -124,38 +123,27 @@ class DB:
 
     @staticmethod
     def add_playlist(name: str, platform: str, status: bool = False) -> None:
-        '''Adds new playlist to out database.
+        """Добавляет нового плейлист в базу данных.
 
-        Arguments:
-            name -- name of playlist (primary key)
-
-            platform -- platform from which videos for this playlist are downloaded
-            
-            status -- shows is it updating right now (default = False)
-
-        Return value:
-            None 
-        '''
+        :param name: название плейлиста
+        :param platform: платформа, с которой идет скачивание
+        :param status: состояние плейлиста в данных момент: True - обновляется в данный момент, False - не обновляется
+        """
         logger.info(f"Adding new playlist: {name} from {platform}")
 
         with get_local()[1]() as session:
-            new_playlist = Playlist(id=name, host = platform, is_updating = status)
+            new_playlist = Playlist(id=name, host=platform, is_updating=status)
             session.add(new_playlist)
             session.flush()
             session.commit()
 
     @staticmethod
     def add_playlist_user(chat: int, playlist: str) -> None:
-        '''Adds new playlist user to out database.
+        """Добавляет нового пользователя плейлиста.
 
-        Arguments:
-            chat -- new user of playlist (primary key)
-
-            playlist -- name of users playlist (primary key)
-            
-        Return value:
-            None 
-        '''
+        :param chat: id пользователя
+        :param playlist: название плейлиста
+        """
         logger.info(f"Adding new playlist user: user {chat} to playlist {playlist}")
 
         with get_local()[1]() as session:
@@ -166,16 +154,11 @@ class DB:
 
     @staticmethod
     def add_playlist_video(video_id: str, playlist_id: str) -> None:
-        '''Adds new playlist video to out database.
+        """Добавляет новое видео в плейлист.
 
-        Arguments:
-            video_id -- new video of playlist (primary key)
-
-            playlist_id -- name of users playlist (primary key)
-            
-        Return value:
-            None 
-        '''
+        :param video_id: id видео
+        :param playlist_id: название плейлиста)
+        """
         logger.info(f"Adding new playlist video: {video_id} to playlist {playlist_id}")
 
         with get_local()[1]() as session:
@@ -186,14 +169,12 @@ class DB:
 
     @staticmethod
     def get_subscribed_users(playlist: str) -> list:
-        '''Gets all users who are subscribed to this playlist.
+        """Получает список всех пользователей данного плейлиста.
 
-        Arguments:
-            playlist -- name of playlist
-        
-        Return value:
-            list of user_id  
-        '''
+        :param playlist: название плейлиста
+
+        :return: Список всех id пользователей использующих данный плейлист
+        """
         logger.info(f"Getting all playlist {playlist} users")
 
         with get_local()[1]() as session:
@@ -205,14 +186,12 @@ class DB:
 
     @staticmethod
     def get_all_videos(playlist: str) -> list:
-        '''Gets all videos of chosen playlist.
+        """Получает список всех видео данного плейлиста.
 
-        Arguments:
-            playlist -- name of playlist
-        
-        Return value:
-            list of video_id
-        '''
+        :param playlist: название плейлиста
+
+        :return: Список всех id video данного плейлиста
+        """
         logger.info(f"Getting all playlist {playlist} videos")
 
         with get_local()[1]() as session:
@@ -224,14 +203,10 @@ class DB:
 
     @staticmethod
     def delete_user(chat: int) -> None:
-        '''Deletes unsubscribed user.
+        """Удаляет пользователя из базы данных.
 
-        Arguments:
-            chat -- name of user
-        
-        Return value:
-            None
-        '''
+        :param chat: id пользователя
+        """
         logger.info(f"Deleting user {chat}")
 
         with get_local()[1]() as session:
@@ -242,14 +217,10 @@ class DB:
 
     @staticmethod
     def delete_video(video: str) -> None:
-        '''Deletes useless video.
+        """Удаляет данные о видео из базы данных.
 
-        Arguments:
-            video -- name of video
-        
-        Return value:
-            None
-        '''
+        :param video: id видео
+        """
         logger.info(f"Deleting video {video}")
 
         with get_local()[1]() as session:
@@ -260,14 +231,10 @@ class DB:
 
     @staticmethod
     def delete_playlist(key: str) -> None:
-        '''Deletes useless playlist.
+        """Удаляет данные о плейлисте из базы данных.
 
-        Arguments:
-            key -- name of playlist
-        
-        Return value:
-            None
-        '''
+        :param key: название плейлиста
+        """
         logger.info(f"Deleting playlist {key}")
 
         with get_local()[1]() as session:
@@ -278,16 +245,11 @@ class DB:
 
     @staticmethod
     def delete_playlist_video(playlist: str, video: str) -> None:
-        '''Deletes video from target playlist.
+        """Убирает видео из плейлиста
 
-        Arguments:
-            playlist -- name of playlist
-
-            video -- name of video
-        
-        Return value:
-            None
-        '''
+        :param playlist: название плейлиста
+        :param video: id видео
+        """
         logger.info(f"Deleting video {video} from playlist {playlist}")
 
         with get_local()[1]() as session:
@@ -299,16 +261,11 @@ class DB:
 
     @staticmethod
     def delete_playlist_user(playlist: str, chat: int) -> None:
-        '''Removes access of user to target playlist.
+        """Убирает доступ пользователя к плейлисту.
 
-        Arguments:
-            playlist -- name of playlist
-
-            chat -- user
-        
-        Return value:
-            None
-        '''
+        :param playlist: название плейлиста
+        :param chat: id пользователя
+        """
         logger.info(f"Deleting user {chat} from playlist {playlist}")
 
         with get_local()[1]() as session:
@@ -320,16 +277,11 @@ class DB:
 
     @staticmethod
     def update_video(id: str, new_file_id: str) -> None:
-        '''Changes file_id of video.
+        """Changes изменяет путь выбранноого видео.
 
-        Arguments:
-            id -- id of video
-
-            new_file_id -- new value of file_id
-        
-        Return value:
-            None
-        '''
+        :param id: id видео
+        :param new_file_id: новый путь
+        """
         logger.info(f"Changing file_id of video {id} to {new_file_id}")
 
         with get_local()[1]() as session:
@@ -339,16 +291,11 @@ class DB:
 
     @staticmethod
     def update_playlist_status(id: str, status: bool) -> None:
-        '''Changes status of playlist.
+        """Изменяет статус плейлиста.
 
-        Arguments:
-            id -- id of playlist
-
-            status -- current (new) status
-        
-        Return value:
-            None
-        '''
+        :param id: навзвание плейслиста
+        :param status: новый статус
+        """
         logger.info(f"Changing status of playlist {id}")
 
         with get_local()[1]() as session:
@@ -357,15 +304,27 @@ class DB:
             session.commit()
 
     @staticmethod
-    def get_video(id: str) -> Video:
-        '''Gets video info by id.
+    def get_user(id: str) -> Video:
+        """Получает объект класса User_ по id (нужно для проверки существования пользователя в базе данных).
 
-        Arguments:
-            id -- id of video
-        
-        Return value:
-            class Video object
-        '''
+        :param id: id пользователя
+
+        :return: объект класса User_
+        """
+        logger.info(f"getting user {id} info")
+
+        with get_local()[1]() as session:
+            target = session.get(User_, id)
+        return target
+
+    @staticmethod
+    def get_video(id: str) -> Video:
+        """Получает информацию о видео по id.
+
+        :param id: id видео
+
+        :return: объект класса Video
+        """
         logger.info(f"getting video {id} info")
 
         with get_local()[1]() as session:
@@ -374,61 +333,17 @@ class DB:
 
     @staticmethod
     def get_playlist(id: str) -> Playlist:
-        '''Gets playlist info by id.
+        """Получает информацию о плейлисте по id.
 
-        Arguments:
-            id -- id of playlist
-        
-        Return value:
-            class Playlist object
-        '''
+        :param id: название плейлиста
+
+        :return: объект класса Playlist
+        """
         logger.info(f"getting playlist {id} info")
 
         with get_local()[1]() as session:
             target = session.get(Playlist, id)
         return target
-
-
-# example of using
-def test():
-    DB.create_tables()
-
-    DB.add_user(123)
-    DB.add_user(124)
-    DB.add_user(125)
-    DB.select_users()
-
-    DB.add_video("cat", "youtube")
-    DB.add_video("dog", "youtube")
-    DB.add_video("fail", "youtube")
-    DB.select_videos()
-
-    DB.add_playlist("agil", "youtube")
-    DB.add_playlist("amirov", "youtube")
-    DB.add_playlist("roma", "youtube")
-
-    DB.add_playlist_user(123, 'agil')
-    DB.add_playlist_user(123, "amirov")
-    DB.add_playlist_user(124, 'agil')
-    DB.add_playlist_user(125, "roma")
-    print(DB.get_subscribed_users('agil'))
-
-    DB.add_playlist_video('cat', "agil")
-    DB.add_playlist_video("dog", 'agil')
-    DB.add_playlist_video("fail", 'agil')
-    DB.add_playlist_video("cat", "amirov")
-    DB.add_playlist_video("dog", "amirov")
-    DB.add_playlist_video("fail", "amirov")
-    DB.add_playlist_video("cat", "roma")
-    DB.add_playlist_video("dog", "roma")
-    DB.add_playlist_video("fail", "roma")
-    DB.get_all_videos("amirov")
-
-    DB.delete_user(123)
-    DB.delete_video("cat")
-
-    DB.delete_playlist("roma")
-    DB.delete_playlist_video('agil', "dog")
 
 
 def init():
@@ -437,10 +352,13 @@ def init():
     DB.add_video("roma")
     DB.add_video("neroma", "ahil")
     print(DB.select_users())
-    
-    
 
-DB.create_tables()
+
+if create_tables == 'True':
+    try:
+        DB.create_tables()
+    except OperationalError as e:
+        logger.error(e)
 
 if __name__ == '__main__':
     # test()
