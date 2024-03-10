@@ -86,6 +86,7 @@ class WorkerYoutubeTestCase(BaseWorker):
         :param req_post_mock: Mock для имитации отправки post запросов
         :param json_dumps_mock: Mock для имитации сериализаци данных
         """
+
         def _pre(mocks):
             mocks[0].send_video.return_value.video.file_id = '7986223'
 
@@ -156,6 +157,7 @@ class WorkerVkTestCase(BaseWorker):
         :param req_post_mock: Mock для имитации отправки post запросов
         :param json_dumps_mock: Mock для имитации сериализаци данных
         """
+
         def _pre(mocks):
             mocks[0].send_video.return_value.video.file_id = 'ERTGHJKUYTFG498'
 
