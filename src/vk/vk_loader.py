@@ -87,7 +87,7 @@ class VKLoader:
             else:
                 code = HTTPStatus.REQUEST_ENTITY_TOO_LARGE
         except YoutubeDLError as e:
-            logger.error(f"Cath unexpected error: {e.__class__.__name__}, {e}, {e.args}")
+            logger.error(f"Catch unexpected error: {e.__class__.__name__}, {e}, {e.args}")
             code = HTTPStatus.BAD_REQUEST
         return Response(file_path, status=code)
 
@@ -96,7 +96,7 @@ class VKLoader:
         """
         Возвращает информацию о всех видео в плейлисте с использованием библиотеки youtube_dlp
 
-        :return: Response 200 со списком video_id если загрузка удалась, BadResponse 400 иначе
+        :return: Response 200 со списком video_id если загрузка удалась, BadResponse 400|404 иначе
         """
         url = request.args.get('url', None)
         video_ids = []
@@ -104,13 +104,15 @@ class VKLoader:
         if url is None:
             return Response(status=HTTPStatus.BAD_REQUEST)
         try:
-            logger.info(f'Fetching all videos in {url}')
+            logger.info(f'Fetching all videos in playlist {url}')
             with yt_dlp.YoutubeDL({'quiet': True, 'nocheckcertificate': True}) as ydlp:
                 ent = ydlp.extract_info(url, download=False, process=False).get('entries', [])
                 video_ids = list(x for x in map(lambda x: x.get('id', None), list(ent)) if x is not None)
-            logger.info(f'Fetching complete, video_ids: {video_ids}')
+        except KeyError as e:
+            logger.error(f"Cath KeyError: {e} ")
+            code = HTTPStatus.BAD_REQUEST
         except YoutubeDLError as e:
-            logger.error(f"Cath unexpected error: {e.__class__.__name__}, {e}, {e.args}")
+            logger.error(f"Catch unexpected error: {e.__class__.__name__}, {e}, {e.args}")
             code = HTTPStatus.BAD_REQUEST
         return Response(json.dumps({'video_ids': video_ids}), status=code)
 
@@ -134,4 +136,4 @@ class VKLoader:
 
 if __name__ == '__main__':
     app = VKLoader()
-    app.run()
+    app.run(config('DEBUG', False))

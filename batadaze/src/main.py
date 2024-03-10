@@ -25,6 +25,7 @@ db_port = os.getenv('POSTGRES_PORT')
 db_user = os.getenv('POSTGRES_USER')
 db_pass = os.getenv('POSTGRES_PASSWORD')
 db_name = os.getenv('POSTGRES_DB')
+create_tables = os.getenv('CREATE_TABLES')
 
 _engines = dict()
 
@@ -44,6 +45,9 @@ def get_local():
 
 
 class DB:
+    """
+    """
+
     @staticmethod
     def create_tables() -> None:
         """creates database tables for current engine"""
@@ -56,7 +60,7 @@ class DB:
 
     @staticmethod
     def select_users() -> list:
-        """returns list of User_ class objects"""
+        """returns list of `User_ class` objects"""
         logger.info("Getting list of users")
 
         with get_local()[1]() as session:
@@ -82,7 +86,7 @@ class DB:
         logger.info("Getting list of playlists")
 
         with get_local()[1]() as session:
-            query = select(Playlist.id)
+            query = select(Playlist)
             result = session.execute(query)
             playlists = result.scalars().all()
         return playlists
@@ -91,8 +95,7 @@ class DB:
     def add_user(chat: int) -> None:
         """Adds new user in database.
 
-
-        :param int chat: id of user (primary key)
+        :param chat: id of user (primary key)
         """
         logger.info(f"Adding new user: {chat}")
 
@@ -108,8 +111,6 @@ class DB:
 
         :param video: id of video (primary key)
         :param file: path of video (default = None)
-
-        :return: None
         """
         logger.info(f"Adding new video: {video}, {file}")
 
@@ -121,38 +122,27 @@ class DB:
 
     @staticmethod
     def add_playlist(name: str, platform: str, status: bool = False) -> None:
-        '''Adds new playlist to out database.
+        """Adds new playlist to out database.
 
-        Arguments:
-            name -- name of playlist (primary key)
-
-            platform -- platform from which videos for this playlist are downloaded
-
-            status -- shows is it updating right now (default = False)
-
-        Return value:
-            None
-        '''
+        :param name: name of playlist (primary key)
+        :param platform: platform from which videos for this playlist are downloaded
+        :param status: shows is it updating right now (default = False)
+        """
         logger.info(f"Adding new playlist: {name} from {platform}")
 
         with get_local()[1]() as session:
-            new_playlist = Playlist(id=name, host = platform, is_updating = status)
+            new_playlist = Playlist(id=name, host=platform, is_updating=status)
             session.add(new_playlist)
             session.flush()
             session.commit()
 
     @staticmethod
     def add_playlist_user(chat: int, playlist: str) -> None:
-        '''Adds new playlist user to out database.
+        """Adds new playlist user to out database.
 
-        Arguments:
-            chat -- new user of playlist (primary key)
-
-            playlist -- name of users playlist (primary key)
-
-        Return value:
-            None
-        '''
+        :param chat: new user of playlist (primary key)
+        :param playlist: name of users playlist (primary key)
+        """
         logger.info(f"Adding new playlist user: user {chat} to playlist {playlist}")
 
         with get_local()[1]() as session:
@@ -163,16 +153,11 @@ class DB:
 
     @staticmethod
     def add_playlist_video(video_id: str, playlist_id: str) -> None:
-        '''Adds new playlist video to out database.
+        """Adds new playlist video to out database.
 
-        Arguments:
-            video_id -- new video of playlist (primary key)
-
-            playlist_id -- name of users playlist (primary key)
-
-        Return value:
-            None
-        '''
+        :param video_id: new video of playlist (primary key)
+        :param playlist_id: name of users playlist (primary key)
+        """
         logger.info(f"Adding new playlist video: {video_id} to playlist {playlist_id}")
 
         with get_local()[1]() as session:
@@ -183,14 +168,12 @@ class DB:
 
     @staticmethod
     def get_subscribed_users(playlist: str) -> list:
-        '''Gets all users who are subscribed to this playlist.
+        """Gets all users who are subscribed to this playlist.
 
-        Arguments:
-            playlist -- name of playlist
+        :param playlist: name of playlist
 
-        Return value:
-            list of user_id
-        '''
+        :return: list of user_id
+        """
         logger.info(f"Getting all playlist {playlist} users")
 
         with get_local()[1]() as session:
@@ -202,14 +185,12 @@ class DB:
 
     @staticmethod
     def get_all_videos(playlist: str) -> list:
-        '''Gets all videos of chosen playlist.
+        """Gets all videos of chosen playlist.
 
-        Arguments:
-            playlist -- name of playlist
+        :param playlist: name of playlist
 
-        Return value:
-            list of video_id
-        '''
+        :return: list of video_id
+        """
         logger.info(f"Getting all playlist {playlist} videos")
 
         with get_local()[1]() as session:
@@ -221,14 +202,10 @@ class DB:
 
     @staticmethod
     def delete_user(chat: int) -> None:
-        '''Deletes unsubscribed user.
+        """Deletes unsubscribed user.
 
-        Arguments:
-            chat -- name of user
-
-        Return value:
-            None
-        '''
+        :param chat: name of user
+        """
         logger.info(f"Deleting user {chat}")
 
         with get_local()[1]() as session:
@@ -239,14 +216,10 @@ class DB:
 
     @staticmethod
     def delete_video(video: str) -> None:
-        '''Deletes useless video.
+        """Deletes useless video.
 
-        Arguments:
-            video -- name of video
-
-        Return value:
-            None
-        '''
+        :param video: name of video
+        """
         logger.info(f"Deleting video {video}")
 
         with get_local()[1]() as session:
@@ -257,14 +230,10 @@ class DB:
 
     @staticmethod
     def delete_playlist(key: str) -> None:
-        '''Deletes useless playlist.
+        """Deletes useless playlist.
 
-        Arguments:
-            key -- name of playlist
-
-        Return value:
-            None
-        '''
+        :param key: name of playlist
+        """
         logger.info(f"Deleting playlist {key}")
 
         with get_local()[1]() as session:
@@ -275,16 +244,11 @@ class DB:
 
     @staticmethod
     def delete_playlist_video(playlist: str, video: str) -> None:
-        '''Deletes video from target playlist.
+        """Deletes video from target playlist.
 
-        Arguments:
-            playlist -- name of playlist
-
-            video -- name of video
-
-        Return value:
-            None
-        '''
+        :param playlist: name of playlist
+        :param video: name of video
+        """
         logger.info(f"Deleting video {video} from playlist {playlist}")
 
         with get_local()[1]() as session:
@@ -296,16 +260,11 @@ class DB:
 
     @staticmethod
     def delete_playlist_user(playlist: str, chat: int) -> None:
-        '''Removes access of user to target playlist.
+        """Removes access of user to target playlist.
 
-        Arguments:
-            playlist -- name of playlist
-
-            chat -- user
-
-        Return value:
-            None
-        '''
+        :param playlist: name of playlist
+        :param chat: user
+        """
         logger.info(f"Deleting user {chat} from playlist {playlist}")
 
         with get_local()[1]() as session:
@@ -317,16 +276,11 @@ class DB:
 
     @staticmethod
     def update_video(id: str, new_file_id: str) -> None:
-        '''Changes file_id of video.
+        """Changes file_id of video.
 
-        Arguments:
-            id -- id of video
-
-            new_file_id -- new value of file_id
-
-        Return value:
-            None
-        '''
+        :param id: id of video
+        :param new_file_id: new value of file_id
+        """
         logger.info(f"Changing file_id of video {id} to {new_file_id}")
 
         with get_local()[1]() as session:
@@ -336,16 +290,11 @@ class DB:
 
     @staticmethod
     def update_playlist_status(id: str, status: bool) -> None:
-        '''Changes status of playlist.
+        """Changes status of playlist.
 
-        Arguments:
-            id -- id of playlist
-
-            status -- current (new) status
-
-        Return value:
-            None
-        '''
+        :param id: id of playlist
+        :param status: current (new) status
+        """
         logger.info(f"Changing status of playlist {id}")
 
         with get_local()[1]() as session:
@@ -354,15 +303,27 @@ class DB:
             session.commit()
 
     @staticmethod
+    def get_user(id: str) -> Video:
+        """Gets user info by id.
+
+        :param id: id of user
+
+        :return: class User object
+        """
+        logger.info(f"getting user {id} info")
+
+        with get_local()[1]() as session:
+            target = session.get(User_, id)
+        return target
+
+    @staticmethod
     def get_video(id: str) -> Video:
-        '''Gets video info by id.
+        """Gets video info by id.
 
-        Arguments:
-            id -- id of video
+        :param id: id of video
 
-        Return value:
-            class Video object
-        '''
+        :return: class Video object
+        """
         logger.info(f"getting video {id} info")
 
         with get_local()[1]() as session:
@@ -371,14 +332,12 @@ class DB:
 
     @staticmethod
     def get_playlist(id: str) -> Playlist:
-        '''Gets playlist info by id.
+        """Gets playlist info by id.
 
-        Arguments:
-            id -- id of playlist
+        :param id: id of playlist
 
-        Return value:
-            class Playlist object
-        '''
+        :return: class Playlist object
+        """
         logger.info(f"getting playlist {id} info")
 
         with get_local()[1]() as session:
@@ -394,8 +353,8 @@ def init():
     print(DB.select_users())
 
 
-
-DB.create_tables()
+if create_tables:
+    DB.create_tables()
 
 if __name__ == '__main__':
     # test()

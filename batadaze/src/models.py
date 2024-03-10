@@ -50,6 +50,7 @@ class Playlist(Base):
     host: Mapped[str_256]
     is_updating: Mapped[bool]
 
+
 class Playlist_User(Base):
     __tablename__ = "playlist_user"
 

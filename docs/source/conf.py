@@ -31,6 +31,7 @@ intersphinx_mapping = {
     'pytube': ('https://pytube.io/en/latest/', None),
     'pika': ('https://pika.readthedocs.io/en/stable/', None),
     'flask': ('https://flask.palletsprojects.com/en/latest/', None),
+    'sqlalchemy': ('https://docs.sqlalchemy.org/en/20/', None),
 }
 
 set_type_checking_flag = True

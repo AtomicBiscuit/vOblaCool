@@ -9,7 +9,7 @@ import flask
 import requests
 from decouple import config
 from flask import abort, Response, request
-from telebot import apihelper, asyncio_helper, TeleBot
+from telebot import apihelper, asyncio_helper, TeleBot, formatting
 from telebot.apihelper import ApiTelegramException
 from telebot.handler_backends import State, StatesGroup
 from telebot.custom_filters import StateFilter
@@ -169,6 +169,8 @@ class TBotHandler:
         playlist_url = payload.get('playlist_url', None)
         video_url = payload.get('video_url', None)
         error_code = payload.get('error_code', None)
+        caption = (f' [Видео]({video_url})' if video_url else '') + (
+            f' [Плейлист]({playlist_url})' if playlist_url else '')
         if error_code is not None:
             if error_code == HTTPStatus.UNAUTHORIZED:
                 message_text = 'Загрузка невозможна: требуется авторизация'
@@ -179,11 +181,10 @@ class TBotHandler:
                                 'потоков весит больше 1000МБ')
             else:
                 message_text = 'Непредвиденная ошибка при попытке загрузки'
-            self.bot.send_message(chat_id, message_text,
+            self.bot.send_message(chat_id, formatting.escape_markdown(message_text) + caption, parse_mode='MarkdownV2',
                                   reply_parameters=ReplyParameters(message_id, chat_id, True))
         else:
-            text = f'[Видео]({video_url})' + (f' [Плейлист]({playlist_url})' if playlist_url else '')
-            self.bot.send_video(chat_id, file_id, caption=text, parse_mode='MarkdownV2',
+            self.bot.send_video(chat_id, file_id, caption=caption, parse_mode='MarkdownV2',
                                 reply_parameters=ReplyParameters(message_id, chat_id, True))
 
         return Response(status=HTTPStatus.OK)
@@ -207,4 +208,4 @@ class TBotHandler:
 
 if __name__ == '__main__':
     botik = TBotHandler()
-    botik.run()
+    botik.run(config('DEBUG', False))

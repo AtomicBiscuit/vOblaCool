@@ -126,7 +126,7 @@ class Worker:
         url = videohostings[hosting]['video'].format(payload['video_id'])
         file_id = None
         error_code = None
-        logger.info(f"Downloading start, url: {url}")
+        logger.info(f"Download start, url: {url}")
         response = requests.post(
             f'http://{videohostings[hosting]["host"]}:{videohostings[hosting]["port"]}/api/download',
             json={'url': url},
@@ -134,7 +134,7 @@ class Worker:
         )
         if response.status_code == HTTPStatus.OK:
             path = response.text
-            logger.info(f"Load complete, file_path: {path}")
+            logger.info(f"Download complete, file_path: {path}")
             try:
                 with open(path, 'rb') as f:
                     file_id = bot.send_video(DOWNLOAD_CHAT_ID, f, timeout=1000).video.file_id
@@ -142,7 +142,7 @@ class Worker:
                 logger.error(f"Fatal error: {e.__class__.__name__}, {e}, {e.args}")
                 error_code = HTTPStatus.INTERNAL_SERVER_ERROR
         else:
-            logger.warning(f"Load fail with status code: {response.status_code}")
+            logger.warning(f"Download fail with status code: {response.status_code}")
             error_code = response.status_code
         ch.basic_publish(
             exchange='',
@@ -155,14 +155,12 @@ class Worker:
         """
         Получает информацию о всех видеозаписях в плейлисте
 
-        :param payload: Словарь с параметрами, для работы требуются поля `playlist_id`, `hosting`
+        :param payload: Словарь параметров, для работы требуются поля `playlist_id`, `hosting`
         """
         bot, con, ch = get_local()
         playlist_id = payload['playlist_id']
         hosting = payload['hosting']
         url = videohostings[hosting]['playlist'].format(playlist_id)
-        video_ids = None
-        error_code = None
 
         logger.info(f"Playlist get start, url: {url}")
         response = requests.get(
@@ -170,8 +168,9 @@ class Worker:
             params={'url': url},
             timeout=100
         )
+        error_code = None
+        video_ids = json.loads(response.text)['video_ids']
         if response.status_code == HTTPStatus.OK:
-            video_ids = json.loads(response.text)['video_ids']
             logger.info(f"Playlist get complete, videos: {video_ids}")
         else:
             logger.warning(f"Playlist get fail with status code: {response.status_code}")
@@ -187,15 +186,20 @@ class Worker:
         """
         Возвращает запрос как ответ
 
-        :param payload: Словарь с параметрами
+        :param payload: Словарь параметров
         """
         bot, con, ch = get_local()
-        url = videohostings[payload['hosting']]['video'].format(payload['video_id'])
+        video_url = None
+        playlist_url = None
+        if payload.get('video_id', None):
+            video_url = videohostings[payload['hosting']]['video'].format(payload['video_id'])
+        if payload.get('playlist_id', None):
+            playlist_url = videohostings[payload['hosting']]['video'].format(payload['playlist_id'])
         logger.info(f"Return task accept")
         ch.basic_publish(
             exchange='',
             routing_key='answer_queue',
-            body=json.dumps(payload | {'video_url': url}))
+            body=json.dumps(payload | {'video_url': video_url, 'playlist_url': playlist_url}))
         logger.info(f"Reply-message send")
 
     def run(self) -> NoReturn:

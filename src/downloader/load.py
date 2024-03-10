@@ -89,11 +89,18 @@ class Loader:
         """
         Обработка полученных от worker-а ответов
         """
-        payload: dict = json.loads(body.decode("utf-8"))
-        if payload['type'] == 'return':
+
+        def __on_return(payload: dict) -> None:
             file_id = DB.get_video(payload['video_id']).file_id
-            req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete', json=payload | {'file_id': file_id})
-        elif payload['type'] == 'download':
+            if payload.get('playlist_id', None) is None:
+                req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete', json=payload | {'file_id': file_id})
+            else:
+                users = DB.get_subscribed_users(payload['playlist_id'])
+                for user in users:
+                    req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete',
+                             json=payload | {'file_id': file_id, 'chat_id': user})
+
+        def __on_download(payload: dict) -> None:
             video_id = payload['video_id']
             if DB.get_video(video_id) is None:
                 DB.add_video(video_id, payload['file_id'])
@@ -106,17 +113,29 @@ class Loader:
                 users = DB.get_subscribed_users(payload['playlist_id'])
                 for user in users:
                     req.post(f'http://{TBOT_HOST}:{TBOT_PORT}/api/download/complete', json=payload | {'chat_id': user})
-        elif payload['type'] == 'playlist':
-            current_ids = DB.get_all_videos(payload['playlist_id'])
-            new_ids = {_id for _id in payload['video_ids'] if _id not in current_ids}
+
+        def __on_playlist(payload: dict) -> None:
+            playlist_id = payload.get('playlist_id', '0')
+            current_ids = DB.get_all_videos(playlist_id)
+            new_ids = [_id for _id in payload['video_ids'] if _id not in current_ids]
             for _id in new_ids:
-                if not payload['upload']:
-                    if DB.get_video(_id) is None:
-                        DB.add_video(_id, None)
-                    DB.add_playlist_video(_id, payload['playlist_id'])
-                else:
+                video = DB.get_video(_id)
+                if video is None:
+                    DB.add_video(_id, None)
+                DB.add_playlist_video(_id, playlist_id)
+                task_type = 'return' if video and video.file_id else 'download'
+                if payload.get('upload', None):
                     self.channel.basic_publish(exchange='', routing_key='task_queue',
-                                               body=json.dumps(payload | {'type': 'download', 'video_id': _id}))
+                                               body=json.dumps(payload | {'type': task_type, 'video_id': _id}))
+            DB.update_playlist_status(playlist_id, False)
+
+        payload: dict = json.loads(body.decode("utf-8"))
+        if payload['type'] == 'return':
+            __on_return(payload)
+        elif payload['type'] == 'download':
+            __on_download(payload)
+        elif payload['type'] == 'playlist':
+            __on_playlist(payload)
 
     @staticmethod
     async def main_page() -> Response:
@@ -207,7 +226,6 @@ class Loader:
         payload = request.json
         url_raw = payload['url']
         playlist_id = None
-        upload = False
         hosting = None
         if self.extract_playlist_id(url_raw, 'youtube'):
             playlist_id = self.extract_playlist_id(url_raw, 'youtube')
@@ -222,8 +240,8 @@ class Loader:
         if DB.get_user(payload['chat_id']) is None:
             DB.add_user(payload['chat_id'])
         if DB.get_playlist(playlist_id) is None:
-            DB.add_playlist(playlist_id)
-            await self._update_playlist(playlist_id, hosting, upload)
+            DB.add_playlist(playlist_id, hosting)
+            await self._update_playlist(playlist_id, hosting, False)
         if payload['chat_id'] not in DB.get_subscribed_users(playlist_id):
             DB.add_playlist_user(payload['chat_id'], playlist_id)
 
@@ -279,28 +297,20 @@ class Loader:
 
 
 def update_all_playlists() -> NoReturn:
-    logger.info("update_all process starts")
+    logger.info("update_all process start")
     all_playlists = DB.select_playlists()
-    logger.info(f"All playlists: {all_playlists}")
     for playlist in all_playlists:
-        host = 'youtube'
-        if playlist.count('_') == 1:
-            host = 'vk'
-        logger.info(f"Playlist: {playlist}, host: {host}")
-        logger.info(
-            "Send query to" + f'http://{config("DOWNLOADER_HOST")}:{config("DOWNLOADER_PORT")}/api/playlist/update')
+        if playlist.is_updating:
+            continue
+        DB.update_playlist_status(playlist.id, True)
         requests.post(f'http://{config("DOWNLOADER_HOST")}:{config("DOWNLOADER_PORT")}/api/playlist/update',
-                      json={'playlist_id': playlist, 'hosting': host, 'upload': True})
-
-
-def log_time():
-    logger.info("One minute pass")
+                      json={'playlist_id': playlist.id, 'hosting': playlist.host, 'upload': True})
+    logger.info("update_all process finish")
 
 
 def schedule_tasks():
-    logger.info("Forming schedule tasks")
-    schedule.every(10).minutes.do(update_all_playlists)
-    schedule.every(1).minutes.do(log_time)
+    logger.info("Generating schedule tasks")
+    schedule.every(1).minutes.do(update_all_playlists)
     logger.info("Schedule pending start")
     while True:
         schedule.run_pending()
@@ -310,5 +320,5 @@ def schedule_tasks():
 if __name__ == '__main__':
     app = Loader()
     threading.Thread(target=schedule_tasks).start()
-    app.run()
+    app.run(config('DEBUG', False))
     app.connection.close()
