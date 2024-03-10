@@ -26,7 +26,7 @@ db_port = os.getenv('POSTGRES_PORT')
 db_user = os.getenv('POSTGRES_USER')
 db_pass = os.getenv('POSTGRES_PASSWORD')
 db_name = os.getenv('POSTGRES_DB')
-create_tables = os.getenv('CREATE_TABLES', False)
+create_tables = os.getenv('CREATE_TABLES', 'False')
 
 _engines = dict()
 
@@ -52,7 +52,7 @@ class DB:
 
     @staticmethod
     def create_tables() -> None:
-        """creates database tables for current engine"""
+        """Создает все таблицы для данного движка"""
         logger.info("Creating tables")
 
         engine = get_local()[0]
@@ -62,7 +62,7 @@ class DB:
 
     @staticmethod
     def select_users() -> list:
-        """returns list of `User_ class` objects"""
+        """Возвращает список всех пользователей бота в виде объектов класса `User_`"""
         logger.info("Getting list of users")
 
         with get_local()[1]() as session:
@@ -73,7 +73,7 @@ class DB:
 
     @staticmethod
     def select_videos() -> list:
-        """returns list of Video class objects"""
+        """Возвращает список всех скачанных видео в виде объектов класса `Video`"""
         logger.info("Getting list of videos")
 
         with get_local()[1]() as session:
@@ -84,7 +84,7 @@ class DB:
 
     @staticmethod
     def select_playlists() -> list:
-        """returns list of Playlist class objects"""
+        """Возвращает список всех плейлистов в виде объектов класса `Playlist`"""
         logger.info("Getting list of playlists")
 
         with get_local()[1]() as session:
@@ -95,9 +95,9 @@ class DB:
 
     @staticmethod
     def add_user(chat: int) -> None:
-        """Adds new user in database.
+        """Добавляет нового пользователя в базу данных.
 
-        :param chat: id of user (primary key)
+        :param chat: id пользователя
         """
         logger.info(f"Adding new user: {chat}")
 
@@ -109,10 +109,10 @@ class DB:
 
     @staticmethod
     def add_video(video: str, file: str = None) -> None:
-        """Adds new video to out database.
+        """Добавляет новое видео в базу данных.
 
         :param video: id of video (primary key)
-        :param file: path of video (default = None)
+        :param file: путь файла, если есть (иначе None)
         """
         logger.info(f"Adding new video: {video}, {file}")
 
@@ -124,11 +124,11 @@ class DB:
 
     @staticmethod
     def add_playlist(name: str, platform: str, status: bool = False) -> None:
-        """Adds new playlist to out database.
+        """Добавляет нового плейлист в базу данных.
 
-        :param name: name of playlist (primary key)
-        :param platform: platform from which videos for this playlist are downloaded
-        :param status: shows is it updating right now (default = False)
+        :param name: название плейлиста
+        :param platform: платформа, с которой идет скачивание
+        :param status: состояние плейлиста в данных момент: True - обновляется в данный момент, False - не обновляется
         """
         logger.info(f"Adding new playlist: {name} from {platform}")
 
@@ -140,10 +140,10 @@ class DB:
 
     @staticmethod
     def add_playlist_user(chat: int, playlist: str) -> None:
-        """Adds new playlist user to out database.
+        """Добавляет нового пользователя плейлиста.
 
-        :param chat: new user of playlist (primary key)
-        :param playlist: name of users playlist (primary key)
+        :param chat: id пользователя
+        :param playlist: название плейлиста
         """
         logger.info(f"Adding new playlist user: user {chat} to playlist {playlist}")
 
@@ -155,10 +155,10 @@ class DB:
 
     @staticmethod
     def add_playlist_video(video_id: str, playlist_id: str) -> None:
-        """Adds new playlist video to out database.
+        """Добавляет новое видео в плейлист.
 
-        :param video_id: new video of playlist (primary key)
-        :param playlist_id: name of users playlist (primary key)
+        :param video_id: id видео
+        :param playlist_id: название плейлиста)
         """
         logger.info(f"Adding new playlist video: {video_id} to playlist {playlist_id}")
 
@@ -170,11 +170,11 @@ class DB:
 
     @staticmethod
     def get_subscribed_users(playlist: str) -> list:
-        """Gets all users who are subscribed to this playlist.
+        """Получает список всех пользователей данного плейлиста.
 
-        :param playlist: name of playlist
+        :param playlist: название плейлиста
 
-        :return: list of user_id
+        :return: Список всех id пользователей использующих данный плейлист
         """
         logger.info(f"Getting all playlist {playlist} users")
 
@@ -187,11 +187,11 @@ class DB:
 
     @staticmethod
     def get_all_videos(playlist: str) -> list:
-        """Gets all videos of chosen playlist.
+        """Получает список всех видео данного плейлиста.
 
-        :param playlist: name of playlist
+        :param playlist: название плейлиста
 
-        :return: list of video_id
+        :return: Список всех id video данного плейлиста
         """
         logger.info(f"Getting all playlist {playlist} videos")
 
@@ -204,9 +204,9 @@ class DB:
 
     @staticmethod
     def delete_user(chat: int) -> None:
-        """Deletes unsubscribed user.
+        """Удаляет пользователя из базы данных.
 
-        :param chat: name of user
+        :param chat: id пользователя
         """
         logger.info(f"Deleting user {chat}")
 
@@ -218,9 +218,9 @@ class DB:
 
     @staticmethod
     def delete_video(video: str) -> None:
-        """Deletes useless video.
+        """Удаляет данные о видео из базы данных.
 
-        :param video: name of video
+        :param video: id видео
         """
         logger.info(f"Deleting video {video}")
 
@@ -232,9 +232,9 @@ class DB:
 
     @staticmethod
     def delete_playlist(key: str) -> None:
-        """Deletes useless playlist.
+        """Удаляет данные о плейлисте из базы данных.
 
-        :param key: name of playlist
+        :param key: название плейлиста
         """
         logger.info(f"Deleting playlist {key}")
 
@@ -246,10 +246,10 @@ class DB:
 
     @staticmethod
     def delete_playlist_video(playlist: str, video: str) -> None:
-        """Deletes video from target playlist.
+        """Убирает видео из плейлиста
 
-        :param playlist: name of playlist
-        :param video: name of video
+        :param playlist: название плейлиста
+        :param video: id видео
         """
         logger.info(f"Deleting video {video} from playlist {playlist}")
 
@@ -262,10 +262,10 @@ class DB:
 
     @staticmethod
     def delete_playlist_user(playlist: str, chat: int) -> None:
-        """Removes access of user to target playlist.
+        """Убирает доступ пользователя к плейлисту.
 
-        :param playlist: name of playlist
-        :param chat: user
+        :param playlist: название плейлиста
+        :param chat: id пользователя
         """
         logger.info(f"Deleting user {chat} from playlist {playlist}")
 
@@ -278,10 +278,10 @@ class DB:
 
     @staticmethod
     def update_video(id: str, new_file_id: str) -> None:
-        """Changes file_id of video.
+        """Changes изменяет путь выбранноого видео.
 
-        :param id: id of video
-        :param new_file_id: new value of file_id
+        :param id: id видео
+        :param new_file_id: новый путь
         """
         logger.info(f"Changing file_id of video {id} to {new_file_id}")
 
@@ -292,10 +292,10 @@ class DB:
 
     @staticmethod
     def update_playlist_status(id: str, status: bool) -> None:
-        """Changes status of playlist.
+        """Изменяет статус плейлиста.
 
-        :param id: id of playlist
-        :param status: current (new) status
+        :param id: название плейлиста
+        :param status: новый статус
         """
         logger.info(f"Changing status of playlist {id}")
 
@@ -306,11 +306,11 @@ class DB:
 
     @staticmethod
     def get_user(id: str) -> Video:
-        """Gets user info by id.
+        """Получает объект класса User_ по id (нужно для проверки существования пользователя в базе данных).
 
-        :param id: id of user
+        :param id: id пользователя
 
-        :return: class User object
+        :return: объект класса User_
         """
         logger.info(f"getting user {id} info")
 
@@ -320,11 +320,11 @@ class DB:
 
     @staticmethod
     def get_video(id: str) -> Video:
-        """Gets video info by id.
+        """Получает информацию о видео по id.
 
-        :param id: id of video
+        :param id: id видео
 
-        :return: class Video object
+        :return: объект класса Video
         """
         logger.info(f"getting video {id} info")
 
@@ -334,11 +334,11 @@ class DB:
 
     @staticmethod
     def get_playlist(id: str) -> Playlist:
-        """Gets playlist info by id.
+        """Получает информацию о плейлисте по id.
 
-        :param id: id of playlist
+        :param id: название плейлиста
 
-        :return: class Playlist object
+        :return: объект класса Playlist
         """
         logger.info(f"getting playlist {id} info")
 
