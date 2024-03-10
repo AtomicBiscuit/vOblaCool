@@ -44,14 +44,13 @@
   ```
   `PORT` должен совпадать с `TELEGRAM_BOT_HANDLER_PORT`, не закрывайте окно командной строки до конца работы приложения
 * Скопируйте полученный домен в `TELEGRAM_BOT_HANDLER_PROXY`
-*
 
-Запустите [Docker](https://docs.docker.com/desktop/?_gl=1*1dcggd0*_ga*NDE4MTkyNTMwLjE2OTc0NDc1MTM.*_ga_XJWPQMJYHQ*MTcwOTA3NDkwNy4xNy4xLjE3MDkwNzQ5MDkuNTguMC4w)
+* Запустите [Docker](https://docs.docker.com/desktop/?_gl=1*1dcggd0*_ga*NDE4MTkyNTMwLjE2OTc0NDc1MTM.*_ga_XJWPQMJYHQ*MTcwOTA3NDkwNy4xNy4xLjE3MDkwNzQ5MDkuNTguMC4w)
 и выполнить команду
 
-```console
-docker-compose up
-```
+    ```console
+    docker-compose up
+    ```
 
 ### Запуск на сервере
 
@@ -60,14 +59,13 @@ docker-compose up
 
 * Укажите в `TELEGRAM_BOT_HANDLER_PROXY` адрес сервера
 * Настройте переадресацию запросов с главной страницы на `localhost:TELEGRAM_BOT_HANDLER_PORT`
-*
 
-Запустите [Docker](https://docs.docker.com/desktop/?_gl=1*1dcggd0*_ga*NDE4MTkyNTMwLjE2OTc0NDc1MTM.*_ga_XJWPQMJYHQ*MTcwOTA3NDkwNy4xNy4xLjE3MDkwNzQ5MDkuNTguMC4w)
+* Запустите [Docker](https://docs.docker.com/desktop/?_gl=1*1dcggd0*_ga*NDE4MTkyNTMwLjE2OTc0NDc1MTM.*_ga_XJWPQMJYHQ*MTcwOTA3NDkwNy4xNy4xLjE3MDkwNzQ5MDkuNTguMC4w)
 и выполните команду
 
-```console
-docker-compose up
-```
+    ```console
+    docker-compose up
+    ```
 
 ### Генерация автодокументации
 
